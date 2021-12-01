@@ -1,16 +1,23 @@
-﻿if (Environment.GetEnvironmentVariable("DOTNET_WATCH") != default)
+﻿var config = new SolverConfiguration()
 {
-    Solver.SolveLast();
+    ShowConstructorElapsedTime = true,
+    ShowTotalElapsedTimePerDay = true,
+    ShowOverallResults = true,
+};
+
+if (Environment.GetEnvironmentVariable("DOTNET_WATCH") != default)
+{
+    Solver.SolveLast(config);
     return;
 }
 
 switch (args.Length)
 {
     case 0:
-        Solver.SolveLast();
+        Solver.SolveLast(config);
         break;
     case 1 when args[0].Contains("all", System.StringComparison.CurrentCultureIgnoreCase):
-        Solver.SolveAll();
+        Solver.SolveAll(config);
         break;
     default:
     {
