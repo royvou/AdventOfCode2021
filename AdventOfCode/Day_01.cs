@@ -3,18 +3,26 @@
 public class Day_01 : BaseDay
 {
     private readonly string _input;
-    private readonly List<int> _numberList;
+    private readonly int[] _numberList;
 
     public Day_01()
     {
         _input = File.ReadAllText(InputFilePath);
-        _numberList = _input.Split("\n").Select(int.Parse).ToList();
+        _numberList = _input.Split("\n").Select(int.Parse).ToArray();
     }
 
     public override ValueTask<string> Solve_1() => new(Solve_1_Sync());
 
     private string Solve_1_Sync()
-        => _numberList.Aggregate<int, (int Count, int? Previous)>((Count: 0, Previous: null), (acc, current) =>
+        => Count(_numberList);
+
+    public override ValueTask<string> Solve_2() => new(Solve_2_Sync());
+
+    private string Solve_2_Sync()
+        => Count(_numberList.Take(_numberList.Length -2).Select((_, index) => GeListForIndex(index))).ToString();
+
+    private string Count(IEnumerable<int> numberList)
+        => numberList.Aggregate<int, (int Count, int? Previous)>((Count: 0, Previous: null), (acc, current) =>
         {
             if (acc.Previous.HasValue && acc.Previous < current)
             {
@@ -24,19 +32,6 @@ public class Day_01 : BaseDay
             return (acc.Count, current);
         }).Count.ToString();
 
-    public override ValueTask<string> Solve_2() => new(Solve_2_Sync());
-
-    private string Solve_2_Sync()
-        => _numberList.Select((_, index) => GeListForIndex(index)).Where(x => x.Length == 3).Aggregate<int[], (int Count, int[]? Previous)>((Count: 0, Previous: null), (acc, current) =>
-        {
-            if (acc.Previous != default && acc.Previous.Sum() < current.Sum())
-            {
-                return (acc.Count + 1, current);
-            }
-
-            return (acc.Count, current);
-        }).Count.ToString();
-
-    private int[] GeListForIndex(int index)
-        => _numberList.Skip(index).Take(3).ToArray();
+    private int GeListForIndex(int index)
+        => _numberList[index..(index + 3)].Sum();
 }
