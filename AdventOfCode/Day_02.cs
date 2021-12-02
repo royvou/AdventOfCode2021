@@ -32,7 +32,22 @@ public class Day_02 : BaseDay
         return (x * y).ToString();
     }
 
-    public override ValueTask<string> Solve_2() => new(String.Empty);
+    public override ValueTask<string> Solve_2() => new(Solve_2_Sync());
+    
+    private string Solve_2_Sync()
+    {
+        var (x, y, aim) = _inputData.Aggregate(new Day02Position(0,0,0), (position, current) =>
+        {
+            return current.Direction switch
+            {
+                Day02Direction.down => position with { Aim = position.Aim + current.Amount },
+                Day02Direction.up => position with { Aim = position.Aim - current.Amount },
+                Day02Direction.forward => position with { X = position.X + current.Amount, Y = position.Y + ( position.Aim * current.Amount)},
+                
+            };
+        });
+        return (x * y).ToString();
+    }
 
     public enum Day02Direction
     {
@@ -41,4 +56,6 @@ public class Day_02 : BaseDay
         up,
     }
     public record Day02Data(Day02Direction Direction, int Amount){}
+    
+    public record Day02Position(long X, long Y, long Aim){}
 }
