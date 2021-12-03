@@ -37,43 +37,17 @@ public class Day_03 : BaseDay
     public override ValueTask<string> Solve_2() => new(Solve_2_Sync());
 
     private string Solve_2_Sync()
-        => (CalculateOxygenRating() * CalculateCo2Rating()).ToString();
+        => (CalculateRating(tuple => tuple.one >= tuple.zero) * CalculateRating(tuple => tuple.one < tuple.zero)).ToString();
 
-    private int CalculateOxygenRating()
+    private int CalculateRating(Func<(int one, int zero), bool> check)
     {
         var bitLength = _parsedInputPart1[0].Length;
 
         var validLines = new List<int>(_parsedInputPart2);
         for (var i = bitLength - 1; i >= 0; i--)
         {
-            var (one, zero) = CountNum(validLines, i);
-            if (one >= zero)
-            {
-                validLines.RemoveAll(line => (line & (1 << i)) == 0);
-            }
-            else
-            {
-                validLines.RemoveAll(line => (line & (1 << i)) != 0);
-            }
-
-            if (validLines.Count == 1)
-            {
-                return validLines[0];
-            }
-        }
-
-        return -1;
-    }
-
-    private int CalculateCo2Rating()
-    {
-        var bitLength = _parsedInputPart1[0].Length;
-
-        var validLines = new List<int>(_parsedInputPart2);
-        for (var i = bitLength - 1; i >= 0; i--)
-        {
-            var (one, zero) = CountNum(validLines, i);
-            if (one < zero)
+            var numCount = CountNum(validLines, i);
+            if (check(numCount))
             {
                 validLines.RemoveAll(line => (line & (1 << i)) == 0);
             }
