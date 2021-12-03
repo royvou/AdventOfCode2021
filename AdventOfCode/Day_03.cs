@@ -17,16 +17,18 @@ public class Day_03 : BaseDay
     public override ValueTask<string> Solve_1() => new(Solve_1_Sync());
 
     private string Solve_1_Sync()
-    {
-        var result = Enumerable.Range(0, _parsedInputPart1[0].Length).Aggregate(new Day03Part1Record(0, 0), (acc, current) =>
+    {        
+        var validLines = new List<int>(_parsedInputPart2);
+
+        var result = Enumerable.Range(0, _parsedInputPart1[0].Length).Reverse().Aggregate(new Day03Part1Record(0, 0), (acc, current) =>
         {
             var gamma = acc.Gamma;
             gamma <<= 1;
-            var orderByDescending = _parsedInputPart1.Select(x => x[current]).GroupBy(x => x).OrderByDescending(x => x.Count()).ToList();
-            gamma ^= orderByDescending[0].Key;
+            var (one, zero) = CountNum(validLines, current);
+            gamma ^= one > zero ? 1 : 0;
             var epsilon = acc.Epsilon;
             epsilon <<= 1;
-            epsilon ^= orderByDescending[1].Key;
+            epsilon ^= one > zero ? 0 : 1;
 
             return new Day03Part1Record(gamma, epsilon);
         });
