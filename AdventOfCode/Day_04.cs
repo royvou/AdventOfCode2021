@@ -29,14 +29,15 @@ public class Day_04 : BaseDay
 
     public override ValueTask<string> Solve_1()
     {
+        var bingoCards = _bingoCards.Select(bingoCard => bingoCard with { }).ToList();
         foreach (var bingoDraw in _bingoDrawOrder)
         {
-            foreach (var map in _bingoCards)
+            foreach (var map in bingoCards)
             {
                 map.MarkNumber(bingoDraw);
             }
 
-            var winner = _bingoCards.FirstOrDefault(map => map.HasWon());
+            var winner = bingoCards.FirstOrDefault(map => map.HasWon());
             if (winner != default)
             {
                 return new ValueTask<string>((winner.Score * bingoDraw).ToString());
@@ -46,7 +47,30 @@ public class Day_04 : BaseDay
         return new ValueTask<string>(string.Empty);
     }
 
-    public override ValueTask<string> Solve_2() => new(string.Empty);
+    public override ValueTask<string> Solve_2()
+    {
+        var bingoCards = _bingoCards.Select(bingoCard => bingoCard with { }).ToList();
+        foreach (var bingoDraw in _bingoDrawOrder)
+        {
+            foreach (var map in bingoCards)
+            {
+                map.MarkNumber(bingoDraw);
+            }
+
+            if (bingoCards.Count > 1)
+            {
+                bingoCards.RemoveAll(bingoCard => bingoCard.HasWon());    
+            }
+            
+            var winner = bingoCards.FirstOrDefault(map => map.HasWon());
+            if (winner != default)
+            {
+                return new ValueTask<string>((winner.Score * bingoDraw).ToString());
+            }
+        }
+
+        return new ValueTask<string>(string.Empty);
+    }
 
     public record Day04Map(IDictionary<(int X, int Y), (long number, bool Checked)> Map)
     {
