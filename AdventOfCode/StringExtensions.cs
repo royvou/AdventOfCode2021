@@ -5,6 +5,9 @@ public static class StringExtensions
     public static int AsInt(this string input)
         => int.Parse(input);
 
+    public static long AsLong(this string input)
+        => long.Parse(input);
+    
     public static int AsInt(this char input)
         => (int) char.GetNumericValue(input);
 
