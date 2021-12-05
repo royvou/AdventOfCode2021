@@ -29,41 +29,22 @@ public class Day_05 : BaseDay
     }
 
     public override ValueTask<string> Solve_1()
+        => new(SolvePuzzle(_lines.Where(line => IsHorizontal(line) || IsVertical(line))).ToString());
+
+    public override ValueTask<string> Solve_2()
+        => new(SolvePuzzle(_lines).ToString());
+
+
+    private int SolvePuzzle(IEnumerable<Line> validLines)
+        => validLines.SelectMany(GetPointsForLine).GroupBy(x => x).Count(x => x.Count() > 1);
+
+    private IEnumerable<Point> GetPointsForLine(Line line)
     {
-        var map = new Dictionary<Point, int>();
+        var xDirection = line.Start.X == line.End.X ? 0 : line.End.X > line.Start.X ? 1 : -1;
+        var yDirection = line.Start.Y == line.End.Y ? 0 : line.End.Y > line.Start.Y ? 1 : -1;
+        var distance = Math.Max(Math.Abs(line.Start.X - line.End.X), Math.Abs(line.Start.Y - line.End.Y)) + 1;
 
-        var addLocationToMap = (Point p) => { map[p] = map.TryGetValue(p, out var result) ? result + 1 : 1; };
-
-        var addLocationsToMap = (IEnumerable<Point> points) =>
-        {
-            foreach (var point in points)
-            {
-                addLocationToMap(point);
-            }
-        };
-
-        foreach (var location in _lines)
-        {
-            if (IsHorizontal(location))
-            {
-                var points = location.Start.Y < location.End.Y
-                    ? Enumerable.Range(location.Start.Y, location.End.Y - location.Start.Y + 1).Select(y => new Point(location.Start.X, y))
-                    : Enumerable.Range(location.End.Y, location.Start.Y - location.End.Y + 1).Select(y => new Point(location.Start.X, y));
-
-                addLocationsToMap(points);
-            }
-
-            else if (IsVertical(location))
-            {
-                var points = location.Start.X < location.End.X
-                    ? Enumerable.Range(location.Start.X, location.End.X - location.Start.X + 1).Select(x => new Point(x, location.Start.Y))
-                    : Enumerable.Range(location.End.X, location.Start.X - location.End.X + 1).Select(x => new Point(x, location.Start.Y));
-
-                addLocationsToMap(points);
-            }
-        }
-
-        return new ValueTask<string>(map.Values.Where(count => count > 1).Count().ToString());
+        return Enumerable.Range(0, distance).Select(e => new Point(line.Start.X + e * xDirection, line.Start.Y + e * yDirection));
     }
 
     private bool IsHorizontal(Line line)
@@ -71,9 +52,6 @@ public class Day_05 : BaseDay
 
     private bool IsVertical(Line line)
         => line.Start.Y == line.End.Y;
-
-
-    public override ValueTask<string> Solve_2() => new(string.Empty);
 
     public struct Line
     {
