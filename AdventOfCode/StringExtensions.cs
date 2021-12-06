@@ -14,6 +14,9 @@ public static class StringExtensions
 
     public static IEnumerable<int> AsInt(this IEnumerable<string> input)
         => input.Select(x => int.Parse(x));
+    
+    public static IEnumerable<long> AsLong(this IEnumerable<string> input)
+        => input.Select(x => x.AsLong());
 
     public static IEnumerable<int> ParseAsArray(this string input)
         => input.SplitNewLine().AsInt();
