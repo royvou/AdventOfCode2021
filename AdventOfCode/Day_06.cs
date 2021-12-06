@@ -12,35 +12,53 @@ public class Day_06 : BaseDay
         _initialState = _input.Split(",").AsLong().ToList();
     }
 
-    public override ValueTask<string> Solve_1()
+    public override ValueTask<string> Solve_1() => new(SimulateDays(80).ToString());
+
+    public override ValueTask<string> Solve_2() => new(SimulateDays(256).ToString());
+
+    private long SimulateDays(int days)
     {
-        var state = new LinkedList<long>(_initialState);
-        for (var i = 0; i < 80; i++)
+        var sea = new Sea();
+        sea.Initialize(_initialState);
+
+        for (var i = 0; i < days; i++)
         {
-            state = SimulateDay(state);
+            sea.SimulateDay();
         }
 
-        return new ValueTask<string>(state.Count().ToString());
+        return sea.Count;
     }
 
-    private LinkedList<long> SimulateDay(LinkedList<long> fishes)
+    public class Sea
     {
-        var result = new LinkedList<long>();
-        foreach (var fish in fishes)
+        public Sea()
         {
-            if (fish == 0)
-            { 
-                result.AddLast(6);
-                result.AddLast(8);
-            }
-            else
+            FishPerLifespan = Enumerable.Range(0, 9).Select(x => 0l).ToArray();
+        }
+
+        public long[] FishPerLifespan { get; set; }
+
+
+        public void SimulateDay()
+        {
+            var respawn = FishPerLifespan[0];
+            for (var i = 0; i < FishPerLifespan.Length - 1; i++)
             {
-                result.AddLast(fish - 1);
+                FishPerLifespan[i] = FishPerLifespan[i + 1];
             }
+
+            FishPerLifespan[6] += respawn;
+            FishPerLifespan[8] = respawn;
         }
 
-        return result;
-    }
+        public long Count => FishPerLifespan.Sum();
 
-    public override ValueTask<string> Solve_2() => new(string.Empty);
+        public void Initialize(List<long> initialState)
+        {
+            foreach (var group in initialState.GroupBy(x => x))
+            {
+                FishPerLifespan[group.Key] = group.Count();
+            }
+        }
+    }
 }
