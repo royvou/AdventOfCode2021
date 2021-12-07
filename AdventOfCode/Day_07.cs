@@ -15,7 +15,7 @@ public class Day_07 : BaseDay
     public override ValueTask<string> Solve_1()
     {
         // Assume its between  1/4 and 3/4th
-        int oneFourth = _horizontalPositions.Length / 4;
+        var oneFourth = _horizontalPositions.Length / 4;
         var min = _horizontalPositions[oneFourth];
         var max = _horizontalPositions[^oneFourth];
 
@@ -23,12 +23,12 @@ public class Day_07 : BaseDay
     }
 
     private int CalculateConstantScoreForIndex(int i)
-        => _horizontalPositions.GroupBy(x => x).Select(pos => pos.Count() * Math.Abs(pos.Key - i)).Sum();
+        => _horizontalPositions.Select(pos => Math.Abs(pos - i)).Sum();
 
     public override ValueTask<string> Solve_2()
     {
         // Assume its between  1/4 and 3/4th
-        int oneFourth = _horizontalPositions.Length / 4;
+        var oneFourth = _horizontalPositions.Length / 4;
         var min = _horizontalPositions[oneFourth];
         var max = _horizontalPositions[^oneFourth];
 
@@ -36,7 +36,7 @@ public class Day_07 : BaseDay
     }
 
     private int CalculateIncrementalScoreForIndex(int i)
-        => _horizontalPositions.GroupBy(x => x).Select(pos => pos.Count() * CalculateIncrementalScore( Math.Abs(pos.Key - i))).Sum();
+        => _horizontalPositions.Select(pos => CalculateIncrementalScore(Math.Abs(pos - i))).Sum();
 
     private int CalculateIncrementalScore(int abs)
         => abs * (abs + 1) / 2;
