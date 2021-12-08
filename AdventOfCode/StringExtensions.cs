@@ -2,6 +2,10 @@ namespace AdventOfCode;
 
 public static class StringExtensions
 {
+
+    public static string SortString(this string input)
+        => new string(input.OrderBy(x => x).ToArray());
+    
     public static int AsInt(this string input)
         => int.Parse(input);
 
