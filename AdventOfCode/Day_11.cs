@@ -54,7 +54,7 @@ public class Day_11 : BaseDay
 
                 if (currentMap[x, y] == 10)
                 {
-                    toCheck.Enqueue((x,y));
+                    toCheck.Enqueue((x, y));
                 }
             }
         }
@@ -113,5 +113,18 @@ public class Day_11 : BaseDay
         yield return new ValueTuple<int, int>(x + 1, y + 1);
     }
 
-    public override ValueTask<string> Solve_2() => new(string.Empty);
+    public override ValueTask<string> Solve_2()
+    {
+        var newMap = (int[,])_initialMap.Clone();
+
+        for (var i = 1;; i++)
+        {
+            if (SimulateStep(ref newMap) == newMap.Length)
+            {
+                return new ValueTask<string>(i.ToString());
+            }
+        }
+
+        return new ValueTask<string>("");
+    }
 }
