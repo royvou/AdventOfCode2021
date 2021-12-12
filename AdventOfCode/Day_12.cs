@@ -22,7 +22,7 @@ public class Day_12 : BaseDay
 
     public Dictionary<string, Cave> GetCaveSystem(string input)
     {
-        var connections = _input.SplitNewLine().Select(x =>
+        var connections = input.SplitNewLine().Select(x =>
         {
             var split = x.Split("-");
             return (Name: split[0], Connections: split[1]);
@@ -47,9 +47,9 @@ public class Day_12 : BaseDay
 
 
     public override ValueTask<string> Solve_1()
-        => new(WalkCave(new List<Cave> { _caves["start"], }, GetOptionsPart1).Count().ToString());
+        => new(WalkCave(new List<Cave> { _caves["start"], }, false).Count().ToString());
 
-    private IEnumerable<IList<Cave>> WalkCave(List<Cave> list, Func<IList<Cave>, IEnumerable<Cave>> currentGetOptions)
+    private IEnumerable<IList<Cave>> WalkCave(List<Cave> list, bool maxCountIsTwo)
     {
         var current = list[^1];
         if (current.CaveType == Day12CaveType.Finish)
@@ -58,12 +58,15 @@ public class Day_12 : BaseDay
             yield break;
         }
 
-        foreach (var option in currentGetOptions(list))
+        var containsDuplicates = maxCountIsTwo && ContainsDuplicateSingleCave(list);
+        var maxCount = maxCountIsTwo && !containsDuplicates;
+
+        foreach (var option in GetOptions(list, maxCount ? 2 : 1))
         {
             var path = new List<Cave>();
             path.AddRange(list);
             path.Add(option);
-            var walkedOptions = WalkCave(path, currentGetOptions);
+            var walkedOptions = WalkCave(path, maxCount);
 
             foreach (var walkOption in walkedOptions)
             {
@@ -72,21 +75,8 @@ public class Day_12 : BaseDay
         }
     }
 
-    public static IEnumerable<Cave> GetOptionsPart1(IList<Cave> path)
-    {
-        var current = path[^1];
-        return current.Connections
-            .Where(x => x switch
-            {
-                { CaveType: Day12CaveType.Start, } => false,
-                { CaveType: Day12CaveType.Finish, } => true,
-                { CaveType: Day12CaveType.Large, } => true,
-                { CaveType: Day12CaveType.Small, } when path.All(cave => cave.Name != x.Name) => true,
-                _ => false,
-            });
-    }
-
-    public static IEnumerable<Cave> GetOptionsPart2(IList<Cave> path)
+  
+    public static IEnumerable<Cave> GetOptions(IList<Cave> path, int maxCount)
     {
         var current = path[^1];
         return current.Connections
@@ -95,18 +85,36 @@ public class Day_12 : BaseDay
                 { CaveType: Day12CaveType.Start, } => false,
                 { CaveType: Day12CaveType.Finish, } => true,
                 { CaveType: Day12CaveType.Large, } => true,
-                { CaveType: Day12CaveType.Small, } when path.All(cave => cave.Name != currentCave.Name)  || ContainsNoDuplicateSingleCave(path) => true,
+                { CaveType: Day12CaveType.Small, } => path.Count(x => x.CaveType == Day12CaveType.Small && x.Name == currentCave.Name) < maxCount,
                 _ => false,
             });
     }
 
-    private static bool ContainsNoDuplicateSingleCave(IList<Cave> path)
+    private static bool ContainsDuplicateSingleCave(IList<Cave> path)
     {
-        return !path.Where(x => x.CaveType == Day12CaveType.Small).GroupBy(x => x).Any(x => x.Count() >= 2);
+        var unique = new HashSet<Cave>();
+        foreach (var cave in path)
+        {
+            if (cave.CaveType != Day12CaveType.Small)
+            {
+                continue;
+            }
+
+            if (unique.Contains(cave))
+            {
+                return true;
+            }
+
+            unique.Add(cave);
+        }
+
+        return false;
+
+        //return !path.Where(x => x.CaveType == Day12CaveType.Small).GroupBy(x => x).Any(x => x.Count() >= 2);
     }
 
-    public override ValueTask<string> Solve_2() 
-        => new(WalkCave(new List<Cave> { _caves["start"], }, GetOptionsPart2).Count().ToString());
+    public override ValueTask<string> Solve_2()
+        => new(WalkCave(new List<Cave> { _caves["start"], }, true).Count().ToString());
 
 
     private static Day12CaveType GetCaveType(string name)
@@ -120,6 +128,6 @@ public class Day_12 : BaseDay
 
     public record Cave(string Name, List<Cave> Connections)
     {
-        public Day12CaveType CaveType => GetCaveType(Name);
+        public Day12CaveType CaveType { get; } = GetCaveType(Name);
     }
 }
