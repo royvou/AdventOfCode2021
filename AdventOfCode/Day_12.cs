@@ -47,12 +47,9 @@ public class Day_12 : BaseDay
 
 
     public override ValueTask<string> Solve_1()
-    {
-        var c = WalkCave(new List<Cave> { _caves["start"], }).ToList();
-        return new ValueTask<string>(WalkCave(new List<Cave> { _caves["start"], }).Count().ToString());
-    }
+        => new(WalkCave(new List<Cave> { _caves["start"], }, GetOptionsPart1).Count().ToString());
 
-    private IEnumerable<IList<Cave>> WalkCave(List<Cave> list)
+    private IEnumerable<IList<Cave>> WalkCave(List<Cave> list, Func<IList<Cave>, IEnumerable<Cave>> currentGetOptions)
     {
         var current = list[^1];
         if (current.CaveType == Day12CaveType.Finish)
@@ -61,12 +58,12 @@ public class Day_12 : BaseDay
             yield break;
         }
 
-        foreach (var option in GetOptions(list))
+        foreach (var option in currentGetOptions(list))
         {
             var path = new List<Cave>();
             path.AddRange(list);
             path.Add(option);
-            var walkedOptions = WalkCave(path);
+            var walkedOptions = WalkCave(path, currentGetOptions);
 
             foreach (var walkOption in walkedOptions)
             {
@@ -75,7 +72,7 @@ public class Day_12 : BaseDay
         }
     }
 
-    public IEnumerable<Cave> GetOptions(IList<Cave> path)
+    public static IEnumerable<Cave> GetOptionsPart1(IList<Cave> path)
     {
         var current = path[^1];
         return current.Connections
@@ -89,7 +86,27 @@ public class Day_12 : BaseDay
             });
     }
 
-    public override ValueTask<string> Solve_2() => new(string.Empty);
+    public static IEnumerable<Cave> GetOptionsPart2(IList<Cave> path)
+    {
+        var current = path[^1];
+        return current.Connections
+            .Where(currentCave => currentCave switch
+            {
+                { CaveType: Day12CaveType.Start, } => false,
+                { CaveType: Day12CaveType.Finish, } => true,
+                { CaveType: Day12CaveType.Large, } => true,
+                { CaveType: Day12CaveType.Small, } when path.All(cave => cave.Name != currentCave.Name)  || ContainsNoDuplicateSingleCave(path) => true,
+                _ => false,
+            });
+    }
+
+    private static bool ContainsNoDuplicateSingleCave(IList<Cave> path)
+    {
+        return !path.Where(x => x.CaveType == Day12CaveType.Small).GroupBy(x => x).Any(x => x.Count() >= 2);
+    }
+
+    public override ValueTask<string> Solve_2() 
+        => new(WalkCave(new List<Cave> { _caves["start"], }, GetOptionsPart2).Count().ToString());
 
 
     private static Day12CaveType GetCaveType(string name)
