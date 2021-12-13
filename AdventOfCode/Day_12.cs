@@ -64,26 +64,44 @@ public class Day_12 : BaseDay
         }
 
 
-        foreach (var option in GetOptions(current, visitAmount, maxCountIsTwo ? 2 : 1))
+        foreach (var option in current.Connections)
         {
+            switch (option.CaveType)
+            {
+                case Day12CaveType.Start:
+                    continue;
+                case Day12CaveType.Small:
+                {
+                    var maxCount = maxCountIsTwo ? 2 : 1;
+                    if (visitAmount.TryGetValue(option.Name, out var visitCount) && visitCount >= maxCount)
+                    {
+                        continue;
+                    }
+
+                    break;
+                }
+            }
+            
             var path = new List<Cave>(list.Count + 1);
             path.AddRange(list);
             path.Add(option);
-            
-            visitAmount[option.Name] = visitAmount.TryGetValue(option.Name, out var count) ? count + 1 : 1;
 
-            var walkedOptions = WalkCave(path, visitAmount, maxCountIsTwo && (option.CaveType != Day12CaveType.Small || visitAmount[option.Name] < 2));
+            var currentVisitAmount = visitAmount.TryGetValue(option.Name, out var count) ? count + 1 : 1;
+
+            visitAmount[option.Name] = currentVisitAmount;
+
+            var walkedOptions = WalkCave(path, visitAmount, maxCountIsTwo && (option.CaveType != Day12CaveType.Small || currentVisitAmount < 2));
             foreach (var walkOption in walkedOptions)
             {
                 yield return walkOption;
             }
 
-            visitAmount[option.Name] -= 1;
+            visitAmount[option.Name] = currentVisitAmount - 1;
         }
     }
 
 
-    public static IEnumerable<Cave> GetOptions(Cave current, IDictionary<string, int> visited, int maxCount)
+     public static IEnumerable<Cave> GetOptions(Cave current, IDictionary<string, int> visited, int maxCount)
         => current.Connections
             .Where(currentCave => currentCave switch
             {
