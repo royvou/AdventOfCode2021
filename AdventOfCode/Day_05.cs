@@ -33,10 +33,9 @@ public class Day_05 : BaseDay
 
     public override ValueTask<string> Solve_2()
         => new(SolvePuzzle(_lines).ToString());
-
-
+    
     private int SolvePuzzle(IEnumerable<Line> validLines)
-        => validLines.SelectMany(GetPointsForLine).GroupBy(x => x).Count(x => x.Count() > 1);
+        => validLines.SelectMany(GetPointsForLine).GroupByCount(x => x).Values.Count(x => x > 1);
 
     private IEnumerable<Point> GetPointsForLine(Line line)
     {
