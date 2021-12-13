@@ -47,74 +47,55 @@ public class Day_12 : BaseDay
 
 
     public override ValueTask<string> Solve_1()
-        => new(WalkCave(new List<Cave> { _caves["start"], }, false).Count().ToString());
+        => new(WalkCave(new List<Cave> { _caves["start"], }, null, false).Count().ToString());
 
-    private IEnumerable<IList<Cave>> WalkCave(List<Cave> list, bool maxCountIsTwo)
+    private IEnumerable<IList<Cave>> WalkCave(List<Cave> list, IDictionary<string, int> visitAmount, bool maxCountIsTwo)
     {
         var current = list[^1];
+        visitAmount ??= new Dictionary<string, int>
+        {
+            [current.Name] = 1,
+        };
+
         if (current.CaveType == Day12CaveType.Finish)
         {
             yield return list;
             yield break;
         }
 
-        var containsDuplicates = maxCountIsTwo && ContainsDuplicateSingleCave(list);
-        var maxCount = maxCountIsTwo && !containsDuplicates;
 
-        foreach (var option in GetOptions(list, maxCount ? 2 : 1))
+        foreach (var option in GetOptions(current, visitAmount, maxCountIsTwo ? 2 : 1))
         {
-            var path = new List<Cave>();
+            var path = new List<Cave>(list.Count + 1);
             path.AddRange(list);
             path.Add(option);
-            var walkedOptions = WalkCave(path, maxCount);
+            
+            visitAmount[option.Name] = visitAmount.TryGetValue(option.Name, out var count) ? count + 1 : 1;
 
+            var walkedOptions = WalkCave(path, visitAmount, maxCountIsTwo && (option.CaveType != Day12CaveType.Small || visitAmount[option.Name] < 2));
             foreach (var walkOption in walkedOptions)
             {
                 yield return walkOption;
             }
+
+            visitAmount[option.Name] -= 1;
         }
     }
 
-  
-    public static IEnumerable<Cave> GetOptions(IList<Cave> path, int maxCount)
-    {
-        var current = path[^1];
-        return current.Connections
+
+    public static IEnumerable<Cave> GetOptions(Cave current, IDictionary<string, int> visited, int maxCount)
+        => current.Connections
             .Where(currentCave => currentCave switch
             {
                 { CaveType: Day12CaveType.Start, } => false,
                 { CaveType: Day12CaveType.Finish, } => true,
                 { CaveType: Day12CaveType.Large, } => true,
-                { CaveType: Day12CaveType.Small, } => path.Count(x => x.CaveType == Day12CaveType.Small && x.Name == currentCave.Name) < maxCount,
+                { CaveType: Day12CaveType.Small, } => !visited.TryGetValue(currentCave.Name, out var count) || count < maxCount,
                 _ => false,
             });
-    }
-
-    private static bool ContainsDuplicateSingleCave(IList<Cave> path)
-    {
-        var unique = new HashSet<Cave>();
-        foreach (var cave in path)
-        {
-            if (cave.CaveType != Day12CaveType.Small)
-            {
-                continue;
-            }
-
-            if (unique.Contains(cave))
-            {
-                return true;
-            }
-
-            unique.Add(cave);
-        }
-
-        return false;
-
-        //return !path.Where(x => x.CaveType == Day12CaveType.Small).GroupBy(x => x).Any(x => x.Count() >= 2);
-    }
 
     public override ValueTask<string> Solve_2()
-        => new(WalkCave(new List<Cave> { _caves["start"], }, true).Count().ToString());
+        => new(WalkCave(new List<Cave> { _caves["start"], }, null, true).Count().ToString());
 
 
     private static Day12CaveType GetCaveType(string name)
