@@ -35,15 +35,17 @@ public class Day_13 : BaseDay
         }).ToList();
     }
 
-    public override ValueTask<string> Solve_1()
+    public override ValueTask<string> Solve_1() => new(ExecuteFolds(_folds.Take(1)).Count.ToString());
+
+    private HashSet<(int X, int Y)> ExecuteFolds(IEnumerable<(FoldDirection, int)> folds)
     {
         var currentMap = new HashSet<(int X, int Y)>(_initialMap);
-        foreach (var (foldDirection, foldAmount) in _folds.Take(1))
+        foreach (var (foldDirection, foldAmount) in folds)
         {
             currentMap = Fold(currentMap, foldDirection, foldAmount);
         }
 
-        return new ValueTask<string>(currentMap.Count.ToString());
+        return currentMap;
     }
 
     private static HashSet<(int X, int Y)> Fold(HashSet<(int X, int Y)> currentMap, FoldDirection foldDirection, int foldAmount)
@@ -60,14 +62,16 @@ public class Day_13 : BaseDay
         return result;
     }
 
-    public override ValueTask<string> Solve_2() => new(string.Empty);
+    public override ValueTask<string> Solve_2() => new(PrintMap(ExecuteFolds(_folds)));
 
     private string PrintMap(HashSet<(int X, int Y)> currentMap)
     {
         var sb = new StringBuilder();
-        for (var y = 0; y <= currentMap.MaxBy(x => x.Y).Y; y++)
+        var maxY = currentMap.MaxBy(x => x.Y).Y;
+        var maxX = currentMap.MaxBy(x => x.X).X;
+        for (var y = 0; y <= maxY; y++)
         {
-            for (var x = 0; x <= currentMap.MaxBy(x => x.X).X; x++)
+            for (var x = 0; x <= maxX; x++)
             {
                 sb.Append(currentMap.TryGetValue((x, y), out var hit) ? "█" : " ");
             }
