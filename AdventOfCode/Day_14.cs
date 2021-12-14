@@ -12,35 +12,69 @@ public class Day_14 : BaseDay
         var splitGroups = _input.SplitDoubleNewLine();
 
         _initialList = splitGroups[0].ToCharArray();
-
         _insertionMapping = splitGroups[1].SplitNewLine().ToDictionary(x => (x[0], x[1]), y => y[^1]);
     }
 
     public override ValueTask<string> Solve_1()
+        => new(ExecuteLoops(10).ToString());
+
+    private long ExecuteLoops(int loopCount)
     {
-        var list = new LinkedList<char>(_initialList);
+        Dictionary<(char, char), long> dictionary = new();
+        InitializeDictionary(dictionary);
 
-        for (int i = 0; i < 10; i++)
+        for (var i = 0; i < loopCount; i++)
         {
-            var current = list.First;
-            while (current != default && current.Next != default)
-            {
-                var next = current.Next;
+            Dictionary<(char, char), long> nextDictionary = new();
 
-                if (_insertionMapping.TryGetValue((current.Value, next.Value), out var toInsert))
+            foreach (var dictionaryItem in dictionary)
+            {
+                // In case there is no mapping (likely the last empty value
+                if (!_insertionMapping.TryGetValue(dictionaryItem.Key, out var toInsert))
                 {
-                    list.AddAfter(current, toInsert);
+                    nextDictionary[dictionaryItem.Key] = nextDictionary.GetValueOrDefault(dictionaryItem.Key, 0) + dictionaryItem.Value;
+                    continue;
                 }
 
+                var key = (dictionaryItem.Key.Item1, toInsert);
+                nextDictionary[key] = nextDictionary.GetValueOrDefault(key, 0) + dictionaryItem.Value;
 
-                current = next;
+                var key2 = (toInsert, dictionaryItem.Key.Item2);
+                nextDictionary[key2] = nextDictionary.GetValueOrDefault(key2, 0) + dictionaryItem.Value;
             }
 
+
+            dictionary = nextDictionary;
         }
-        
-        var grouping = list.GroupBy(x => x);
-        return new ValueTask<string>((grouping.Max(x => x.Count()) - grouping.Min(x => x.Count())).ToString());
+
+        var characterCount = CountCharacters(dictionary);
+
+        return characterCount.Max(x => x.Value) - characterCount.Min(x => x.Value);
     }
 
-    public override ValueTask<string> Solve_2() => new(string.Empty);
+    private IDictionary<char, long> CountCharacters(Dictionary<(char, char), long> dictionary)
+    {
+        var result = new Dictionary<char, long>();
+        foreach (var item in dictionary)
+        {
+            result[item.Key.Item1] = result.GetValueOrDefault(item.Key.Item1, 0) + item.Value;
+        }
+
+        return result;
+    }
+
+    private void InitializeDictionary(Dictionary<(char, char), long> dictionary)
+    {
+        for (var i = 0; i < _initialList.Length - 1; i++)
+        {
+            var key = (_initialList[i], _initialList[i + 1]);
+            dictionary[key] = dictionary.GetValueOrDefault(key, 0) + 1;
+        }
+
+        // Add last character with no next :)
+        dictionary[(_initialList[^1], default)] = 1;
+    }
+
+    public override ValueTask<string> Solve_2()
+        => new(ExecuteLoops(40).ToString());
 }
