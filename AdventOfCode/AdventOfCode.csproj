@@ -20,7 +20,7 @@
 
   <ItemGroup>
     <None Update="Inputs\*">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 
