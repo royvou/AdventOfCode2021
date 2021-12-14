@@ -2,8 +2,9 @@
 
 public class Day_04 : BaseDay
 {
-    private readonly List<Day04Map> _bingoCards;
-    private readonly int[] _bingoDrawOrder;
+    private readonly List<BingoCard> _bingoCards;
+    private readonly List<BingoCard> _bingoCardWinners;
+    private readonly Queue<int> _bingoDrawOrder;
     private readonly string _input;
 
     public Day_04()
@@ -12,11 +13,12 @@ public class Day_04 : BaseDay
 
         var lines = _input.SplitDoubleNewLine();
 
-        _bingoDrawOrder = lines[0].Split(",").AsInt().ToArray();
+        _bingoDrawOrder = new Queue<int>(lines[0].Split(",").AsInt());
         _bingoCards = lines.Skip(1).Select(CreateMap).ToList();
+        _bingoCardWinners = new List<BingoCard>();
     }
 
-    private Day04Map CreateMap(string mapData)
+    private BingoCard CreateMap(string mapData)
     {
         var map = mapData
             .SplitNewLine()
@@ -24,77 +26,79 @@ public class Day_04 : BaseDay
             .SelectMany(x => x)
             .ToDictionary(x => x.Item1, y => y.Item2);
 
-        return new Day04Map(map);
+        return new BingoCard(map);
     }
 
     public override ValueTask<string> Solve_1()
     {
-        var bingoCards = _bingoCards.Select(bingoCard => bingoCard with { }).ToList();
-        foreach (var bingoDraw in _bingoDrawOrder)
+        while (_bingoDrawOrder.TryDequeue(out var currentDraw))
         {
-            foreach (var map in bingoCards)
-            {
-                map.MarkNumber(bingoDraw);
-            }
+            _bingoCardWinners.AddRange(_bingoCards.Where(bingoCard => !bingoCard.HasWon && bingoCard.MarkNumber(currentDraw)));
 
-            var winner = bingoCards.FirstOrDefault(map => map.HasWon());
-            if (winner != default)
+            if (_bingoCardWinners.Count == 1)
             {
-                return new ValueTask<string>((winner.Score * bingoDraw).ToString());
+                return new ValueTask<string>((_bingoCardWinners[^1].Score * currentDraw).ToString());
             }
         }
 
-        return new ValueTask<string>(string.Empty);
+        return new ValueTask<string>("");
     }
 
     public override ValueTask<string> Solve_2()
     {
-        var bingoCards = _bingoCards.Select(bingoCard => bingoCard with { }).ToList();
-        foreach (var bingoDraw in _bingoDrawOrder)
+        while (_bingoDrawOrder.TryDequeue(out var currentDraw))
         {
-            foreach (var map in bingoCards)
-            {
-                map.MarkNumber(bingoDraw);
-            }
+            _bingoCardWinners.AddRange(_bingoCards.Where(bingoCard => !bingoCard.HasWon && bingoCard.MarkNumber(currentDraw)));
 
-            if (bingoCards.Count > 1)
+            if (_bingoCards.Count == _bingoCardWinners.Count)
             {
-                bingoCards.RemoveAll(bingoCard => bingoCard.HasWon());    
-            }
-            
-            var winner = bingoCards.FirstOrDefault(map => map.HasWon());
-            if (winner != default)
-            {
-                return new ValueTask<string>((winner.Score * bingoDraw).ToString());
+                return new ValueTask<string>((_bingoCardWinners[^1].Score * currentDraw).ToString());
             }
         }
 
-        return new ValueTask<string>(string.Empty);
+        return new ValueTask<string>("");
     }
 
-    public record Day04Map(IDictionary<(int X, int Y), (long number, bool Checked)> Map)
+    public class BingoCard
     {
-        public long Score => Map.Values.Where(value => !value.Checked).Select(value => value.number).Sum();
-
-        public (int X, int Y)? ContainsNumber(long number)
+        public BingoCard(IDictionary<(int X, int Y), (long number, bool Checked)> Map)
         {
-            var hits = Map.Where(x => x.Value.number == number).Take(1).ToList();
-            return hits.Count > 0 ? hits[0].Key : null;
-        } 
-
-        public void MarkNumber(int number)
-        {
-            var postition = ContainsNumber(number);
-            if (postition.HasValue)
-            {
-                Map[postition.Value] = (number, true);
-            }
+            this.Map = Map;
+            // Map Number to position
+            ReverseMap = this.Map.ToDictionary(x => x.Value.number, y => y.Key);
         }
 
-        public bool HasWon()
+        private Dictionary<long, (int X, int Y)> ReverseMap { get; }
+
+        public long Score => Map.Values.Where(value => !value.Checked).Select(value => value.number).Sum();
+        public IDictionary<(int X, int Y), (long number, bool Checked)> Map { get; }
+
+        public bool HasWon { get; private set; }
+
+        public (int X, int Y)? ContainsNumber(long number)
+            => ReverseMap.TryGetValue(number, out var result) ? result : null;
+
+        // Marks the number
+        public bool MarkNumber(int number)
         {
-            return Map.GroupBy(x => x.Key.X).Any(x => x.All(y => y.Value.Checked)) ||
-                   Map.GroupBy(x => x.Key.Y).Any(x => x.All(y => y.Value.Checked));
+            var postition = ContainsNumber(number);
+            if (!postition.HasValue)
+            {
+                return false;
+            }
+
+            Map[postition.Value] = (number, true);
+
+            return HasWon = ValidateHasWon(postition.Value);
+        }
+
+        private bool ValidateHasWon((int X, int Y) lastPosition)
+            => Map.Count(coor => coor.Key.X == lastPosition.X && coor.Value.Checked) == 5 ||
+               Map.Count(coor => coor.Key.Y == lastPosition.Y && coor.Value.Checked) == 5;
+
+        public void Deconstruct(out IDictionary<(int X, int Y), (long number, bool Checked)> Map)
+        {
+            Map = this.Map;
         }
     }
 }
