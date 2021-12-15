@@ -47,61 +47,51 @@ public class Day_12 : BaseDay
 
 
     public override ValueTask<string> Solve_1()
-        => new(WalkCave(new List<Cave> { _caves["start"], }, null, false).Count().ToString());
+        => new(WalkCave(_caves["start"]).ToString());
 
-    private IEnumerable<IList<Cave>> WalkCave(List<Cave> list, IDictionary<string, int> visitAmount, bool maxCountIsTwo)
+    private int WalkCave(Cave current, Dictionary<string, int> visited = null, bool maxCountIsTwo = false)
     {
-        var current = list[^1];
-        visitAmount ??= new Dictionary<string, int>
+        visited ??= new Dictionary<string, int>
         {
             [current.Name] = 1,
         };
 
-        if (current.CaveType == Day12CaveType.Finish)
-        {
-            yield return list;
-            yield break;
-        }
-
-
+        var result = 0;
         foreach (var option in current.Connections)
         {
-            switch (option.CaveType)
+            if (option.CaveType == Day12CaveType.Start)
             {
-                case Day12CaveType.Start:
-                    continue;
-                case Day12CaveType.Small:
-                {
-                    var maxCount = maxCountIsTwo ? 2 : 1;
-                    if (visitAmount.TryGetValue(option.Name, out var visitCount) && visitCount >= maxCount)
-                    {
-                        continue;
-                    }
+                continue;
+            }
 
-                    break;
+            if (option.CaveType == Day12CaveType.Small)
+            {
+                var maxCount = maxCountIsTwo ? 2 : 1;
+                if (visited.TryGetValue(option.Name, out var visitCount) && visitCount >= maxCount)
+                {
+                    continue;
                 }
             }
-            
-            var path = new List<Cave>(list.Count + 1);
-            path.AddRange(list);
-            path.Add(option);
 
-            var currentVisitAmount = visitAmount.TryGetValue(option.Name, out var count) ? count + 1 : 1;
-
-            visitAmount[option.Name] = currentVisitAmount;
-
-            var walkedOptions = WalkCave(path, visitAmount, maxCountIsTwo && (option.CaveType != Day12CaveType.Small || currentVisitAmount < 2));
-            foreach (var walkOption in walkedOptions)
+            if (option.CaveType == Day12CaveType.Finish)
             {
-                yield return walkOption;
+                result += 1;
+                continue;
             }
 
-            visitAmount[option.Name] = currentVisitAmount - 1;
+
+            var currentVisitAmount = visited.TryGetValue(option.Name, out var count) ? count + 1 : 1;
+            visited[option.Name] = currentVisitAmount;
+            var walkedOptions = WalkCave(option, visited, maxCountIsTwo && (option.CaveType != Day12CaveType.Small || currentVisitAmount < 2));
+            visited[option.Name] = currentVisitAmount - 1;
+            result += walkedOptions;
         }
+
+        return result;
     }
 
 
-     public static IEnumerable<Cave> GetOptions(Cave current, IDictionary<string, int> visited, int maxCount)
+    public static IEnumerable<Cave> GetOptions(Cave current, IDictionary<string, int> visited, int maxCount)
         => current.Connections
             .Where(currentCave => currentCave switch
             {
@@ -113,7 +103,7 @@ public class Day_12 : BaseDay
             });
 
     public override ValueTask<string> Solve_2()
-        => new(WalkCave(new List<Cave> { _caves["start"], }, null, true).Count().ToString());
+        => new(WalkCave(_caves["start"], null, true).ToString());
 
 
     private static Day12CaveType GetCaveType(string name)
