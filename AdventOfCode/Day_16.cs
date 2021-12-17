@@ -4,6 +4,18 @@ namespace AdventOfCode;
 
 public class Day_16 : BaseDay
 {
+    public enum TypeId
+    {
+        Sum = 0,
+        Product = 1,
+        Minimum = 2,
+        Maximum = 3,
+        Litteral = 4,
+        GreaterThan = 5,
+        LessThan = 6,
+        EqualTo = 7,
+    }
+
     private readonly string _input;
     private readonly BitArray _parsedInput;
 
@@ -17,14 +29,14 @@ public class Day_16 : BaseDay
     private void UseTests()
     {
         var a = (new PacketDecoder("D2FE28".HexStringToBitArray()).Parse() as LiteralValue).literal == 2021;
-        var b = (new PacketDecoder("38006F45291200".HexStringToBitArray()).Parse() as OperationalValue).Values.Length == 2;
-        var c = (new PacketDecoder("EE00D40C823060".HexStringToBitArray()).Parse() as OperationalValue).Values.Length == 3;
+        var b = (new PacketDecoder("38006F45291200".HexStringToBitArray()).Parse() as OperationalValue).SubPackets.Length == 2;
+        var c = (new PacketDecoder("EE00D40C823060".HexStringToBitArray()).Parse() as OperationalValue).SubPackets.Length == 3;
         var d = new PacketDecoder("8A004A801A8002F478".HexStringToBitArray()).Parse() as OperationalValue;
     }
 
     public override ValueTask<string> Solve_1() => new(new PacketDecoder(_parsedInput).Parse().VersionSum().ToString());
 
-    public override ValueTask<string> Solve_2() => new(string.Empty);
+    public override ValueTask<string> Solve_2() => new(new PacketDecoder(_parsedInput).Parse().Value().ToString());
 
 
     public class PacketDecoder
@@ -56,16 +68,16 @@ public class Day_16 : BaseDay
         public BasePacket Parse()
         {
             var version = Read(3);
-            var packetType = Read(3);
+            var packetType = (TypeId)Read(3);
 
             return packetType switch
             {
-                4 => ParseLiteralValue(version, packetType),
+                TypeId.Litteral => ParseLiteralValue(version, packetType),
                 _ => ParseOperatorValue(version, packetType),
             };
         }
 
-        private BasePacket ParseOperatorValue(int version, int packetType)
+        private BasePacket ParseOperatorValue(int version, TypeId packetType)
         {
             var lengthTypeId = Read();
 
@@ -90,14 +102,13 @@ public class Day_16 : BaseDay
                     packages.Add(Parse());
                 }
             }
-            // IDK
 
-            return new OperationalValue(version, packetType, packages.ToArray(), 0);
+            return new OperationalValue(version, packetType, packages.ToArray());
         }
 
-        private LiteralValue ParseLiteralValue(int version, int packetType)
+        private LiteralValue ParseLiteralValue(int version, TypeId packetType)
         {
-            var literal = 0;
+            var literal = 0l;
 
             bool moreDigits;
             do
@@ -110,24 +121,43 @@ public class Day_16 : BaseDay
 
             //var ignore = Read(3);
             var ignore = 0;
-            return new LiteralValue(version, packetType, literal, ignore);
+            return new LiteralValue(version, packetType, literal);
         }
     }
 
-    public abstract record BasePacket(int Version, int TypeId)
+    public abstract record BasePacket(int Version, TypeId TypeId)
     {
         public abstract int VersionSum();
+
+        public abstract long Value();
     }
 
-    public record LiteralValue(int Version, int TypeId, int literal, int ignore) : BasePacket(Version, TypeId)
+    public record LiteralValue(int Version, TypeId TypeId, long literal) : BasePacket(Version, TypeId)
     {
         public override int VersionSum()
             => Version;
+
+        public override long Value()
+            => literal;
     }
 
-    public record OperationalValue(int Version, int TypeId, BasePacket[] Values, int ignore) : BasePacket(Version, TypeId)
+    public record OperationalValue(int Version, TypeId TypeId, BasePacket[] SubPackets) : BasePacket(Version, TypeId)
     {
         public override int VersionSum()
-            => Version + Values.Sum(x => x.VersionSum());
+            => Version + SubPackets.Sum(x => x.VersionSum());
+
+        public override long Value()
+            => TypeId switch
+            {
+                TypeId.Sum => SubPackets.Sum(x => x.Value()),
+                TypeId.Product => SubPackets.Aggregate(1l, (curr, next) => curr * next.Value()),
+                TypeId.Minimum => SubPackets.Min(x => x.Value()),
+                TypeId.Maximum => SubPackets.Max(x => x.Value()),
+                //TypeId.Litteral =>x,
+                TypeId.GreaterThan => SubPackets[0].Value() > SubPackets[1].Value() ? 1 : 0,
+                TypeId.LessThan => SubPackets[0].Value() < SubPackets[1].Value() ? 1 : 0,
+                TypeId.EqualTo => SubPackets[0].Value() == SubPackets[1].Value() ? 1 : 0,
+                _ => throw new ArgumentOutOfRangeException(),
+            };
     }
 }
