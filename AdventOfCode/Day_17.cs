@@ -39,9 +39,9 @@ public class Day_17 : BaseDay
         int maxHeight = 0, count = 0;
         for (var vx = 0; vx <= _targetArea.End.X; vx++)
         {
-            for (var vy = -5_000; vy < 5_000; vy++)
+            for (var vy = _targetArea.End.Y; vy < -_targetArea.End.Y; vy++)
             {
-                var (possibleMaxHeight, hit) = CalculateWithVelocity((0, 0), _targetArea, (vx, vy));
+                var (possibleMaxHeight, hit) = SimulateVelocity(_targetArea, (vx, vy));
                 if (!hit)
                 {
                     continue;
@@ -55,20 +55,20 @@ public class Day_17 : BaseDay
         return (maxHeight, count);
     }
 
-    private static (int maxHeight, bool hit) CalculateWithVelocity((int, int) startPoint, ((int X, int Y) Start, (int X, int Y) End) targetArea, (int x, int y) velocity)
+    private (int maxHeight, bool hit) SimulateVelocity(((int X, int Y) Start, (int X, int Y) End) targetArea, (int x, int y) velocity)
     {
-        var (x, y) = startPoint;
+        var (x, y) = (0, 0);
         var (currentXVelocity, currentYVelocity) = velocity;
 
         var maxHeight = 0;
-        for (var i = 0; i < 1000; i++)
+        for (var i = 0; i < 500; i++)
         {
-            if (currentXVelocity == 0 &&  x < targetArea.Start.X)
+            if (currentXVelocity == 0 && x < targetArea.Start.X)
             {
                 // Left side of targetArea but no X velocity
                 break;
             }
-            
+
             if (x > targetArea.End.X)
             {
                 // right side of targetArea
