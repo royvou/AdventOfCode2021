@@ -5,23 +5,28 @@ namespace AdventOfCode;
 public class Day_18 : BaseDay
 {
     private readonly string _input;
-    private readonly BinaryTree<long>[] _mathHomework;
+    private readonly List<BinaryTree<long>> _mathHomeworkPart1;
+    private readonly List<(BinaryTree<long> A, BinaryTree<long> B)> _mathHomeworkPart2;
+
 
     public Day_18()
     {
         _input = File.ReadAllText(InputFilePath);
 
-        _mathHomework = _input.SplitNewLine().Select(ParseBinaryTree).ToArray();
-    }
+        var _rawMathHomework = _input.SplitNewLine();
+        _mathHomeworkPart1 = _rawMathHomework.Select(ParseBinaryTree).ToList();
 
-    public void UseTests()
-    {
-        var a = Equals(PrintBinaryTree(ReduceNumber(ParseBinaryTree("[[[[[9,8],1],2],3],4]"))), "[[[[0,9],2],3],4]");
-        var b = Equals(PrintBinaryTree(ReduceNumber(ParseBinaryTree("[7,[6,[5,[4,[3,2]]]]]"))), "[7,[6,[5,[7,0]]]]");
-        var c = Equals(PrintBinaryTree(ReduceNumber(ParseBinaryTree("[[6,[5,[4,[3,2]]]],1]"))), "[[6,[5,[7,0]]],3]");
-        var d = Equals(PrintBinaryTree(ReduceNumber(ParseBinaryTree("[[3,[2,[1,[7,3]]]],[6,[5,[4,[3,2]]]]]"))), "[[3,[2,[8,0]]],[9,[5,[7,0]]]]");
-        var e = Equals(PrintBinaryTree(ReduceNumber(ParseBinaryTree("[[3,[2,[8,0]]],[9,[5,[4,[3,2]]]]]"))), "[[3,[2,[8,0]]],[9,[5,[7,0]]]]");
-        var f = Equals(PrintBinaryTree(ReduceNumber(ParseBinaryTree("[[[[[4,3],4],4],[7,[[8,4],9]]],[1,1]]"))), "[[[[0,7],4],[[7,8],[6,0]]],[8,1]]");
+        _mathHomeworkPart2 = new List<(BinaryTree<long> A, BinaryTree<long> B)>();
+        for (var i = 0; i < _rawMathHomework.Length; i++)
+        {
+            for (var y = 0; y < _rawMathHomework.Length; y++)
+            {
+                if (i != y)
+                {
+                    _mathHomeworkPart2.Add((ParseBinaryTree(_rawMathHomework[i]), ParseBinaryTree(_rawMathHomework[y])));
+                }
+            }
+        }
     }
 
     private BinaryTree<long> ParseBinaryTree(string arg)
@@ -64,6 +69,7 @@ public class Day_18 : BaseDay
         {
             return string.Empty;
         }
+
         if (node.Left == default && node.Right == default)
         {
             return node.Value.ToString();
@@ -75,10 +81,7 @@ public class Day_18 : BaseDay
     public override ValueTask<string> Solve_1()
     {
         BinaryTree<long> emptyBinaryTree = null;
-        var result = _mathHomework.Aggregate(emptyBinaryTree, (curr, next) =>
-        {
-            return curr == null ? next : ConcatTree(curr, next);
-        });
+        var result = _mathHomeworkPart1.Aggregate(emptyBinaryTree, static (curr, next) => curr == null ? next : ConcatTree(curr, next));
         return new ValueTask<string>(CalculateMagnitude(result).ToString());
     }
 
@@ -95,27 +98,24 @@ public class Day_18 : BaseDay
         return CalculateMagnitude(resultRoot.Left) * 3 + CalculateMagnitude(resultRoot.Right) * 2;
     }
 
-    private BinaryTree<long> ConcatTree(BinaryTree<long> left, BinaryTree<long> right)
+    private static BinaryTree<long> ConcatTree(BinaryTree<long> left, BinaryTree<long> right)
     {
-        var nodes = new List<BinaryTreeNode<long>>();
-        nodes.AddRange(left.Nodes);
-        nodes.AddRange(right.Nodes);
         var tree = new BinaryTree<long>
         {
-            Nodes = nodes,
             Root = new BinaryTreeNode<long>
             {
                 Left = left.Root,
                 Right = right.Root,
             },
         };
+        // nodes.AddRange(left.Nodes.Skip(1));
         tree.ResetDepth();
         tree.RebuildNodes();
         ReduceNumber(tree);
         return tree;
     }
 
-    private BinaryTree<long> ReduceNumber(BinaryTree<long> input)
+    private static BinaryTree<long> ReduceNumber(BinaryTree<long> input)
     {
         while (true)
         {
@@ -131,7 +131,7 @@ public class Day_18 : BaseDay
         return input;
     }
 
-    private bool ApplySplit(BinaryTree<long> input)
+    private static bool ApplySplit(BinaryTree<long> input)
     {
         var nodeOfValueGt = input.Nodes.FirstOrDefault(x => x.IsValueNode && x.Value >= 10);
 
@@ -160,7 +160,7 @@ public class Day_18 : BaseDay
         return false;
     }
 
-    private bool ApplyExplode(BinaryTree<long> input)
+    private static bool ApplyExplode(BinaryTree<long> input)
     {
         var nodeOfDepth4 = input.Nodes.FirstOrDefault(x => x.Depth == 4 && !x.IsValueNode);
 
@@ -204,7 +204,10 @@ public class Day_18 : BaseDay
         return false;
     }
 
-    public override ValueTask<string> Solve_2() => new(string.Empty);
+    public override ValueTask<string> Solve_2()
+    {
+        return new ValueTask<string>(_mathHomeworkPart2.Select(x => CalculateMagnitude(ConcatTree(x.A, x.B))).Max().ToString());
+    }
 
     public class BinaryTree<T>
     {
