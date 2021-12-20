@@ -61,22 +61,25 @@ public class Day_19 : BaseDay
 
     public override ValueTask<string> Solve_1()
     {
-        var result = GetFinalMap();
-        return new ValueTask<string>(result.Scans.Count.ToString());
+        var (finalMap, _) = GetFinalMap();
+        return new ValueTask<string>(finalMap.Scans.Count.ToString());
     }
 
-    private Scanner GetFinalMap()
+    private (Scanner finalScanner, List<Vector3> partScanner) GetFinalMap()
     {
         var scannersToDo = new Queue<Scanner>(_scanners);
         var finalScanner = new Scanner("Final", new HashSet<Vector3>());
+        var scannersDone = new List<Vector3>();
 
         finalScanner.Scans.UnionWith(scannersToDo.Dequeue().Scans);
         while (scannersToDo.TryDequeue(out var currentScanner))
         {
-            var aligned = TryAlignScannerToMap(finalScanner, currentScanner);
-            if (aligned != default)
+            var result = TryAlignScannerToMap(finalScanner, currentScanner);
+            if (result.HasValue)
             {
+                var (aligned, transform) = result.Value;
                 finalScanner.Scans.UnionWith(aligned.Scans);
+                scannersDone.Add(transform);
             }
             else
             {
@@ -84,10 +87,10 @@ public class Day_19 : BaseDay
             }
         }
 
-        return finalScanner;
+        return (finalScanner, scannersDone);
     }
 
-    private Scanner TryAlignScannerToMap(Scanner finalScanner, Scanner currentScanner)
+    private (Scanner, Vector3)? TryAlignScannerToMap(Scanner finalScanner, Scanner currentScanner)
     {
         foreach (var transform in GetTransforms())
         {
@@ -109,7 +112,7 @@ public class Day_19 : BaseDay
                     tmp.IntersectWith(finalScanner.Scans);
                     if (tmp.Count >= 12)
                     {
-                        return movedTransformedScan;
+                        return (movedTransformedScan, delta);
                     }
                 }
             }
@@ -119,7 +122,17 @@ public class Day_19 : BaseDay
     }
 
 
-    public override ValueTask<string> Solve_2() => new(string.Empty);
+    public override ValueTask<string> Solve_2()
+    {
+        var (_, scanners) = GetFinalMap();
+
+        var maxManhatten = scanners
+            .SelectMany((value, i) => scanners.Skip(1 + i), (one, two) => (one, two))
+            .Select(x => x.one.Manhatten(x.two))
+            .Max();
+
+        return new ValueTask<string>(maxManhatten.ToString());
+    }
 }
 
 internal record struct Vector3(int X, int Y, int Z)
@@ -137,6 +150,12 @@ internal record struct Vector3(int X, int Y, int Z)
         Y = Y - translate.Y,
         Z = Z - translate.Z,
     };
+
+    public int Manhatten(Vector3 target)
+    {
+        var (x, y, z) = Delta(target);
+        return Math.Abs(x) + Math.Abs(y) + Math.Abs(z);
+    }
 }
 
 internal record Scanner(string Name, HashSet<Vector3> Scans)
