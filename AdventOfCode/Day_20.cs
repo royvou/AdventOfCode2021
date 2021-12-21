@@ -20,22 +20,24 @@ public class Day_20 : BaseDay
         _initialMap = lines[1..].SelectMany((line, y) => line.Select((@char, x) => (x, y, @char))).ToDictionary(x => (x.x, x.y), x => x.@char == '#');
     }
 
-    public override ValueTask<string> Solve_1()
+    public override ValueTask<string> Solve_1() => new(EnhanceMultipleTimes(_initialMap, 2).Values.Count(x => x).ToString());
+
+    private Dictionary<(int X, int Y), bool> EnhanceMultipleTimes(Dictionary<(int X, int Y), bool> initialMap, int enhanceAmounti)
     {
         var currentMap = _initialMap;
 
         var checkSize = 1;
         var minPosition = (X: 0, Y: 0);
         var maxPosition = (X: currentMap.Max(x => x.Key.X), Y: currentMap.Max(x => x.Key.Y));
-        for (var i = 1; i <= 2; i++)
+        for (var i = 1; i <= enhanceAmounti; i++)
         {
-            currentMap = NextMap(currentMap, (minPosition.X - checkSize * i, minPosition.Y - checkSize * i), (maxPosition.X + checkSize * i, maxPosition.Y + checkSize * i), i % 2 == 0);
+            currentMap = Enhance(currentMap, (minPosition.X - checkSize * i, minPosition.Y - checkSize * i), (maxPosition.X + checkSize * i, maxPosition.Y + checkSize * i), i % 2 == 0);
         }
 
-        return new ValueTask<string>(currentMap.Values.Count(x => x).ToString());
+        return currentMap;
     }
 
-    private Dictionary<(int X, int Y), bool> NextMap(Dictionary<(int X, int Y), bool> previousMap, (int X, int Y) min, (int X, int Y) max, bool isCheckedDefault)
+    private Dictionary<(int X, int Y), bool> Enhance(Dictionary<(int X, int Y), bool> previousMap, (int X, int Y) min, (int X, int Y) max, bool isCheckedDefault)
     {
         var newMap = new Dictionary<(int X, int Y), bool>();
 
@@ -109,5 +111,5 @@ public class Day_20 : BaseDay
         return sb.ToString();
     }
 
-    public override ValueTask<string> Solve_2() => new(string.Empty);
+    public override ValueTask<string> Solve_2() => new(EnhanceMultipleTimes(_initialMap, 50).Values.Count(x => x).ToString());
 }
