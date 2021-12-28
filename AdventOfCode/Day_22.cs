@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Diagnostics.CodeAnalysis;
+using System.Text.RegularExpressions;
 
 namespace AdventOfCode;
 
@@ -9,7 +10,7 @@ public class Day_22 : BaseDay
 
     public Day_22()
     {
-        // _input = File.ReadAllText("./Inputs/22tests.txt");
+        //_input = File.ReadAllText("./Inputs/22tests.txt");
         _input = File.ReadAllText(InputFilePath);
 
         _rebootInstructions = _input.SplitNewLine().Select(ParseRebootStep).ToList();
@@ -19,38 +20,61 @@ public class Day_22 : BaseDay
     {
         var result = Regex.Match(arg, @"(on|off) x=([-\d]+)\.\.([-\d]+),y=([-\d]+)\.\.([-\d]+),z=([-\d]+)\.\.([-\d]+)");
 
-        return new RebootStep(result.Groups[2].Value.AsInt(), result.Groups[4].Value.AsInt(), result.Groups[6].Value.AsInt(), result.Groups[3].Value.AsInt(), result.Groups[5].Value.AsInt(), result.Groups[7].Value.AsInt(), result.Groups[1].Value == "on");
+        return new (result.Groups[2].Value.AsInt(), result.Groups[4].Value.AsInt(), result.Groups[6].Value.AsInt(), result.Groups[3].Value.AsInt(), result.Groups[5].Value.AsInt(), result.Groups[7].Value.AsInt(), result.Groups[1].Value == "on");
     }
 
     public override ValueTask<string> Solve_1()
+        => RunRebootProcedure(_rebootInstructions.Where(x => x.IsInitializationStep()));
+
+    private ValueTask<string> RunRebootProcedure(IEnumerable<RebootStep> rebootSteps)
     {
-        Dictionary<(int X, int Y, int Z), bool> map = new();
-        _rebootInstructions.Where(x => x.minX > -50 && x.minX < 50).Aggregate(map, (curr, next) =>
+        List<RebootStep> map = new(1_000);
+        var parsedSteps = rebootSteps.Aggregate(map, (currentMap, next) =>
         {
-            for (var currZ = next.minZ; currZ <= next.maxZ; currZ++)
+            // Add inverted variant for each overlap
+            currentMap.AddRange(currentMap.Where(location => location.DoesIntersect(next)).Select(x => x.Intersection(next)).ToList());
+            if (next.On)
             {
-                for (var currY = next.minY; currY <= next.maxY; currY++)
-                {
-                    for (var currX = next.minX; currX <= next.maxX; currX++)
-                    {
-                        if (next.On)
-                        {
-                            curr[(currX, currY, currZ)] = true;
-                        }
-                        else
-                        {
-                            curr.Remove((currX, currY, currZ));
-                        }
-                    }
-                }
+                currentMap.Add(next);
             }
 
-            return curr;
+            return currentMap;
         });
-        return new ValueTask<string>(map.Values.Count.ToString());
+
+        var volume = parsedSteps.Aggregate(0L, (curr, next) => curr + next.Volume * (next.On ? 1L : -1L));
+
+        return new ValueTask<string>(volume.ToString());
     }
 
-    public override ValueTask<string> Solve_2() => new(string.Empty);
+    public override ValueTask<string> Solve_2()
+        => RunRebootProcedure(_rebootInstructions);
 }
 
-public record RebootStep(int minX, int minY, int minZ, int maxX, int maxY, int maxZ, bool On);
+
+public record struct RebootStep(int minX, int minY, int minZ, int maxX, int maxY, int maxZ, bool On)
+{
+    public bool IsInitializationStep()
+        => minX > -50 && maxX < 50 ||
+           minY > -50 && maxY < 50 ||
+           minZ > -50 && maxZ < 50;
+    
+    public long Volume => (maxX - minX + 1l) * (maxY - minY + 1l) * (maxZ - minZ + 1l);
+
+    public bool DoesIntersect(RebootStep rebootStep) =>
+        !(
+            minX > rebootStep.maxX || maxX < rebootStep.minX ||
+            minY > rebootStep.maxY || maxY < rebootStep.minY ||
+            minZ > rebootStep.maxZ || maxZ < rebootStep.minZ
+        );
+
+    public RebootStep Intersection(RebootStep rebootStep) =>
+        new(
+            Math.Max(minX, rebootStep.minX),
+            Math.Max(minY, rebootStep.minY),
+            Math.Max(minZ, rebootStep.minZ),
+            Math.Min(maxX, rebootStep.maxX),
+            Math.Min(maxY, rebootStep.maxY),
+            Math.Min(maxZ, rebootStep.maxZ),
+            !On);
+
+}
