@@ -53,7 +53,7 @@ public class Day_25 : BaseDay
         var i = 1;
         for (;; i++)
         {
-            if (ExecuteMove(in currentWorld, ref temporaryWorld) == 0)
+            if (!ExecuteMove(in currentWorld, ref temporaryWorld))
             {
                 break;
             }
@@ -64,9 +64,9 @@ public class Day_25 : BaseDay
         return new ValueTask<string>(i.ToString());
     }
 
-    private int ExecuteMove(in Occupier[,] currentWorld, ref Occupier[,] temporaryWorld)
+    private bool ExecuteMove(in Occupier[,] currentWorld, ref Occupier[,] temporaryWorld)
     {
-        var moves = 0;
+        var moves = false;
         var returnWorld = temporaryWorld;
         Array.Clear(temporaryWorld, 0, temporaryWorld.Length);
 
@@ -86,7 +86,7 @@ public class Day_25 : BaseDay
                 if (currentWorld[xToCheck, y] == Occupier.Empty)
                 {
                     returnWorld[xToCheck, y] = Occupier.Right;
-                    moves++;
+                    moves = true;
                 }
                 else
                 {
@@ -113,7 +113,7 @@ public class Day_25 : BaseDay
                 if (returnWorldItem == Occupier.Empty && currentWorldItem != Occupier.Down)
                 {
                     returnWorld[x, yToCheck] = Occupier.Down;
-                    moves++;
+                    moves = true;
                 }
                 else
                 {
@@ -150,7 +150,7 @@ public class Day_25 : BaseDay
     }
 }
 
-public enum Occupier
+public enum Occupier : byte
 {
     Empty = 0,
     Down,
