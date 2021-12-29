@@ -1,5 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 
 namespace AdventOfCode;
 
@@ -20,7 +19,7 @@ public class Day_22 : BaseDay
     {
         var result = Regex.Match(arg, @"(on|off) x=([-\d]+)\.\.([-\d]+),y=([-\d]+)\.\.([-\d]+),z=([-\d]+)\.\.([-\d]+)");
 
-        return new (result.Groups[2].Value.AsInt(), result.Groups[4].Value.AsInt(), result.Groups[6].Value.AsInt(), result.Groups[3].Value.AsInt(), result.Groups[5].Value.AsInt(), result.Groups[7].Value.AsInt(), result.Groups[1].Value == "on");
+        return new RebootStep(result.Groups[2].Value.AsInt(), result.Groups[4].Value.AsInt(), result.Groups[6].Value.AsInt(), result.Groups[3].Value.AsInt(), result.Groups[5].Value.AsInt(), result.Groups[7].Value.AsInt(), result.Groups[1].Value == "on");
     }
 
     public override ValueTask<string> Solve_1()
@@ -28,7 +27,27 @@ public class Day_22 : BaseDay
 
     private ValueTask<string> RunRebootProcedure(IEnumerable<RebootStep> rebootSteps)
     {
-        List<RebootStep> map = new(1_000);
+        List<RebootStep> map = new();
+        foreach (var next in rebootSteps)
+        {
+            var maxCountToCheck = map.Count;
+            for (var i = 0; i < maxCountToCheck; i++)
+            {
+                var item = map[i];
+                
+                if (item.DoesIntersect(next))
+                {
+                    map.Add(item.Intersection(next));
+                }
+            }
+
+            if (next.On)
+            {
+                map.Add(next);
+            }
+        }
+
+/*
         var parsedSteps = rebootSteps.Aggregate(map, (currentMap, next) =>
         {
             // Add inverted variant for each overlap
@@ -40,8 +59,8 @@ public class Day_22 : BaseDay
 
             return currentMap;
         });
-
-        var volume = parsedSteps.Aggregate(0L, (curr, next) => curr + next.Volume * (next.On ? 1L : -1L));
+*/
+        var volume = map.Aggregate(0L, (curr, next) => curr + next.Volume * (next.On ? 1L : -1L));
 
         return new ValueTask<string>(volume.ToString());
     }
@@ -50,15 +69,14 @@ public class Day_22 : BaseDay
         => RunRebootProcedure(_rebootInstructions);
 }
 
-
 public record struct RebootStep(int minX, int minY, int minZ, int maxX, int maxY, int maxZ, bool On)
 {
+    public long Volume => (maxX - minX + 1l) * (maxY - minY + 1l) * (maxZ - minZ + 1l);
+
     public bool IsInitializationStep()
         => minX > -50 && maxX < 50 ||
            minY > -50 && maxY < 50 ||
            minZ > -50 && maxZ < 50;
-    
-    public long Volume => (maxX - minX + 1l) * (maxY - minY + 1l) * (maxZ - minZ + 1l);
 
     public bool DoesIntersect(RebootStep rebootStep) =>
         !(
@@ -76,5 +94,4 @@ public record struct RebootStep(int minX, int minY, int minZ, int maxX, int maxY
             Math.Min(maxY, rebootStep.maxY),
             Math.Min(maxZ, rebootStep.maxZ),
             !On);
-
 }
