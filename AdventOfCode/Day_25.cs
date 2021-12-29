@@ -47,67 +47,82 @@ public class Day_25 : BaseDay
     public override ValueTask<string> Solve_1()
     {
         var currentWorld = _seaCucumberLair;
+        var temporaryWorld = new Occupier[_seaCucumberLairWidth, _seaCucumberLairHeight];
+
 
         var i = 1;
         for (;; i++)
         {
-            var result = ExecuteMove(in currentWorld);
-            currentWorld = result.returnWorld;
-            if (result.moves == 0)
+            if (ExecuteMove(in currentWorld, ref temporaryWorld) == 0)
             {
                 break;
             }
+
+            (currentWorld, temporaryWorld) = (temporaryWorld, currentWorld);
         }
 
         return new ValueTask<string>(i.ToString());
     }
 
-    private (Occupier[,] returnWorld, int moves) ExecuteMove(in Occupier[,] currentWorld)
+    private int ExecuteMove(in Occupier[,] currentWorld, ref Occupier[,] temporaryWorld)
     {
         var moves = 0;
-        var returnWorld = new Occupier[_seaCucumberLairWidth, _seaCucumberLairHeight];
+        var returnWorld = temporaryWorld;
+        Array.Clear(temporaryWorld, 0, temporaryWorld.Length);
+
+        // Handle >
         for (var y = 0; y < _seaCucumberLairHeight; y++)
         {
             for (var x = 0; x < _seaCucumberLairWidth; x++)
             {
-                if (currentWorld[x, y] == Occupier.Right)
+                if (currentWorld[x, y] != Occupier.Right)
                 {
-                    if (currentWorld[(x + 1) % _seaCucumberLairWidth, y % _seaCucumberLairHeight] == Occupier.Empty)
-                    {
-                        returnWorld[(x + 1) % _seaCucumberLairWidth, y % _seaCucumberLairHeight] = Occupier.Right;
-                        moves++;
-                    }
-                    else
-                    {
-                        returnWorld[x, y] = Occupier.Right;
-                    }
+                    continue;
+                }
+
+                var xToCheck = (x + 1) % _seaCucumberLairWidth;
+
+                // If right is empty in current world, we can safely move :)
+                if (currentWorld[xToCheck, y] == Occupier.Empty)
+                {
+                    returnWorld[xToCheck, y] = Occupier.Right;
+                    moves++;
+                }
+                else
+                {
+                    returnWorld[x, y] = Occupier.Right;
                 }
             }
         }
 
+        // Handle V
         for (var y = 0; y < _seaCucumberLairHeight; y++)
         {
             for (var x = 0; x < _seaCucumberLairWidth; x++)
             {
-                if (currentWorld[x, y] == Occupier.Down)
+                if (currentWorld[x, y] != Occupier.Down)
                 {
-                    var currentWorldItem = currentWorld[x % _seaCucumberLairWidth, (y + 1) % _seaCucumberLairHeight];
-                    var returnWorldItem = returnWorld[x % _seaCucumberLairWidth, (y + 1) % _seaCucumberLairHeight];
-                    // Not moved by ">" and not blocked by "V"
-                    if (returnWorldItem == Occupier.Empty && currentWorldItem != Occupier.Down)
-                    {
-                        returnWorld[x % _seaCucumberLairWidth, (y + 1) % _seaCucumberLairHeight] = Occupier.Down;
-                        moves++;
-                    }
-                    else
-                    {
-                        returnWorld[x, y] = Occupier.Down;
-                    }
+                    continue;
+                }
+
+                var yToCheck = (y + 1) % _seaCucumberLairHeight;
+
+                var currentWorldItem = currentWorld[x, yToCheck];
+                var returnWorldItem = returnWorld[x, yToCheck];
+                // Not moved by ">" and not blocked by "V"
+                if (returnWorldItem == Occupier.Empty && currentWorldItem != Occupier.Down)
+                {
+                    returnWorld[x, yToCheck] = Occupier.Down;
+                    moves++;
+                }
+                else
+                {
+                    returnWorld[x, y] = Occupier.Down;
                 }
             }
         }
 
-        return (returnWorld, moves);
+        return moves;
     }
 
     public override ValueTask<string> Solve_2() => new(string.Empty);
