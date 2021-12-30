@@ -6,12 +6,12 @@ namespace AdventOfCode;
 public class Day_19 : BaseDay
 {
     private readonly string _input;
-    private readonly List<Scanner> _scanners;
+    private readonly Scanner[] _scanners;
 
     public Day_19()
     {
         _input = File.ReadAllText(InputFilePath);
-        _scanners = _input.SplitDoubleNewLine().Select(ParseScanner).ToList();
+        _scanners = _input.SplitDoubleNewLine().Select(ParseScanner).ToArray();
     }
 
     private Scanner ParseScanner(string arg)
@@ -30,72 +30,105 @@ public class Day_19 : BaseDay
 
     public override ValueTask<string> Solve_1()
     {
-        var scanner = ResolveMap();
+        var (scanner, _) = ResolveMap();
         return new ValueTask<string>(scanner.Beacons.Count.ToString());
     }
 
-    private Scanner ResolveMap()
+    private (Scanner FinalScanner, Vector3[] ScannerOffsets) ResolveMap()
     {
-        var scannersCount = _scanners.Count;
+        var scannersCount = _scanners.Length;
         var scannersWithOrientation = _scanners.Select(static scanner => ScannerWithOrientations.FromScanner(scanner)).ToArray();
         var orientation = new Scanner[scannersCount];
         var position = new Vector3?[scannersCount];
 
+        // Resolve 1
         orientation[0] = scannersWithOrientation[0].Variations[0];
         position[0] = new Vector3(0, 0, 0);
 
         var frontier = new Queue<int>();
         frontier.Enqueue(0);
 
-        while (frontier.TryDequeue(out var front))
+        while (frontier.TryDequeue(out var currentNextToCheck))
         {
             for (var i = 0; i < scannersCount; i++)
             {
-                if (position[i].HasValue)
+                // Did we resolve this one already?
+                if (position[i] != default)
                 {
                     continue;
                 }
 
-                var current = scannersWithOrientation[front];
+                // Check if fingerprint between these 2 options match, if this match, do the "Real' match
+                var current = scannersWithOrientation[currentNextToCheck];
                 var toCheck = scannersWithOrientation[i];
                 if (!current.FingerprintMatch(toCheck))
                 {
                     continue;
                 }
 
-                var match = orientation[front].Match(toCheck);
+                // Real match with changing orientation
+                var match = orientation[currentNextToCheck].Match(toCheck);
                 if (!match.HasValue)
                 {
                     continue;
                 }
 
                 orientation[i] = match.Value.Item1; // correct orientation!
-                position[i] = position[front].Value + match.Value.Item2;
+                position[i] = position[currentNextToCheck] + match.Value.Offset;
+
                 frontier.Enqueue(i);
             }
         }
 
-        var result = new Scanner(orientation[0].Name, new List<Vector3>(orientation[0].Beacons));
-
-        for (var i = 1; i < scannersWithOrientation.Length; i++)
+        var result = new Scanner("Final Map", new List<Vector3>(scannersWithOrientation[0].Variations[0].Beacons.Count * scannersWithOrientation.Length));
+        for (var i = 0; i < scannersWithOrientation.Length; i++)
         {
             result.AddUniqueBeacons(orientation[i].Beacons, position[i].Value);
         }
 
-
-        return result;
+        return (result, Array.ConvertAll(position, value => value.Value));
     }
+    
+    public override ValueTask<string> Solve_2()
+    {
+        var (_, positions) = ResolveMap();
 
-    public override ValueTask<string> Solve_2() => new("");
+        var maxManhatten = long.MaxValue;
+        for (var x = 0; x < positions.Length; x++)
+        {
+            for (var y = x + 1; y < positions.Length; y++)
+            {
+                var result = positions[x].Manhatten(positions[y]);
+                if (result < maxManhatten)
+                {
+                    maxManhatten = result;
+                }
+            }
+        }
+
+        /*
+        var maxManhatten = positions
+            .SelectMany((value, i) => positions[(i + 1)..], (one, two) => (one, two))
+            .Select(x => x.one.Manhatten(x.two))
+            .Max();
+        */
+        return new ValueTask<string>(maxManhatten.ToString());
+    }
 }
 
-public readonly record struct Vector3(int X, int Y, int Z)
+public readonly record struct Vector3(int X, int Y, int Z) : IEquatable<Vector3>
 {
-    public int Manhatteen(Vector3 other) => Math.Abs(other.X - X) + Math.Abs(other.Y - Y) + Math.Abs(other.Z - Z);
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public int Manhatten(Vector3 other) => Math.Abs(other.X - X) + Math.Abs(other.Y - Y) + Math.Abs(other.Z - Z);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Vector3 operator +(Vector3 a, Vector3 b) => new(a.X + b.X, a.Y + b.Y, a.Z + b.Z);
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static Vector3 operator -(Vector3 a, Vector3 b) => new(a.X - b.X, a.Y - b.Y, a.Z - b.Z);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public static Vector3 operator -(Vector3 a) => new(-a.X, -a.Y, -a.Z);
 }
 
 public readonly record struct ScannerWithOrientations(Scanner[] Variations, int[][] Fingerprint)
@@ -149,7 +182,7 @@ public readonly record struct ScannerWithOrientations(Scanner[] Variations, int[
         return new ScannerWithOrientations(result.ToArray(), fingerprint);
     }
 
-    public static int[][] GenerateFingerprint(IList<Vector3> beacons)
+    private static int[][] GenerateFingerprint(IList<Vector3> beacons)
     {
         var beaconsCount = beacons.Count;
         var fingerprint = new int[beaconsCount][];
@@ -158,50 +191,54 @@ public readonly record struct ScannerWithOrientations(Scanner[] Variations, int[
             fingerprint[i] = new int[beaconsCount];
             for (var j = 0; j < beaconsCount; j++)
             {
-                fingerprint[i][j] = beacons[i].Manhatteen(beacons[j]);
+                fingerprint[i][j] = beacons[i].Manhatten(beacons[j]);
             }
 
-            //Sort Array[i]
             Array.Sort(fingerprint[i]);
         }
 
         return fingerprint;
     }
 
-    public bool FingerprintMatch(ScannerWithOrientations other)
+    public bool FingerprintMatch(in ScannerWithOrientations other)
     {
         var beaconsCount = Variations[0].Beacons.Count;
         var otherBeaconsCount = other.Variations[0].Beacons.Count;
 
-        for (var i = 0; i < beaconsCount; i++)
+        for (var x = 0; x < beaconsCount; x++)
         {
-            for (var j = 0; j < otherBeaconsCount; j++)
+            var currentFingerprint = Fingerprint[x];
+            for (var y = 0; y < otherBeaconsCount; y++)
             {
-                var p1 = Fingerprint[i];
-                var p2 = other.Fingerprint[j];
-                // check if fingerprint matches
-                var x = 0;
-                var y = 0;
-                var count = 0;
-                while (x < p1.Length && y < p2.Length)
+                var currentOtherFingerprint = other.Fingerprint[y];
+                var currentFingerprintIndex = 0;
+                var currentOtherFingerprintIndex = 0;
+                var matches = 0;
+                while (currentFingerprintIndex < currentFingerprint.Length && currentOtherFingerprintIndex < currentOtherFingerprint.Length)
                 {
-                    if (p1[x] == p2[y])
+                    // Early exit if we are unable to match due to no X spots left
+                    if (matches + currentFingerprint.Length - currentFingerprintIndex < 12)
                     {
-                        x++;
-                        y++;
-                        count++;
-                        if (count >= 12)
+                        break;
+                    }
+
+                    if (currentFingerprint[currentFingerprintIndex] == currentOtherFingerprint[currentOtherFingerprintIndex])
+                    {
+                        currentFingerprintIndex++;
+                        currentOtherFingerprintIndex++;
+                        matches++;
+                        if (matches >= 12)
                         {
                             return true;
                         }
                     }
-                    else if (p1[x] > p2[y])
+                    else if (currentFingerprint[currentFingerprintIndex] > currentOtherFingerprint[currentOtherFingerprintIndex])
                     {
-                        y++;
+                        currentOtherFingerprintIndex++;
                     }
-                    else if (p1[x] < p2[y])
+                    else if (currentFingerprint[currentFingerprintIndex] < currentOtherFingerprint[currentOtherFingerprintIndex])
                     {
-                        x++;
+                        currentFingerprintIndex++;
                     }
                 }
             }
@@ -221,71 +258,42 @@ public readonly record struct Scanner(string Name, List<Vector3> Beacons)
         var beaconsCount = beacons.Count;
         var otherBeaconsCount = otherBeacons.Count;
 
-        // Reuse hashset for each  Test
-        HashSet<Vector3> beaconComparer = new(beaconsCount);
-        foreach (var mine in beacons)
+        // Allow faster compare
+        HashSet<Vector3> beaconComparer = new(beacons);
+
+        for (var x = 0; x < beacons.Count; x++)
         {
-            // var mine = beacons[i];
-            foreach (var their in otherBeacons)
+            var myBeacon = beacons[x];
+            for (var y = 0; y < otherBeacons.Count; y++)
             {
-                //var their = otherBeacons[j];
-                var delta = their - mine;
+                var otherBeacon = otherBeacons[y];
+                var delta = otherBeacon - myBeacon;
 
-                beaconComparer.Clear();
-                foreach (var beacon in otherBeacons)
+                var matches = 0;
+                for (var currentChecked = 0; currentChecked < otherBeaconsCount; currentChecked++)
                 {
-                    beaconComparer.Add(beacon - delta);
-                }
-
-                beaconComparer.IntersectWith(beacons);
-
-                if (beaconComparer.Count >= 12)
-                {
-                    return delta;
-                }
-            }
-        }
-
-/*
-        Based on this Manual version :)
-        for (var i = 22; i < beaconsCount; i++)
-        {
-            for (var j = 0; j < otherBeaconsCount; j++)
-            {
-                var mine = Beacons[i];
-                var their = other.Beacons[j];
-                var relx = their.X - mine.X;
-                var rely = their.Y - mine.Y;
-                var relz = their.Z - mine.Z;
-                var count = 0;
-                for (var k = 0; k < beaconsCount; k++)
-                {
-                    if (count + beaconsCount - k < 12)
+                    // Failure: Can never reach enough matches
+                    if (matches + otherBeaconsCount - currentChecked < 12)
                     {
-                        break; // not possible
-                    }
-
-                    for (var l = 0; l < otherBeaconsCount; l++)
-                    {
-                        var m = Beacons[k];
-                        var n = other.Beacons[l];
-                        if (relx + m.X != n.X || rely + m.Y != n.Y || relz + m.Z != n.Z)
-                        {
-                            continue;
-                        }
-
-                        count++;
-                        if (count >= 12)
-                        {
-                            return new Vector3(relx, rely, relz);
-                        }
-
                         break;
                     }
+
+                    var otherBeacon2 = otherBeacons[currentChecked];
+                    var toCheck = otherBeacon2 - delta;
+                    if (beaconComparer.Contains(toCheck))
+                    {
+                        matches++;
+                    }
+
+                    // Success: Enough matches
+                    if (matches >= 12)
+                    {
+                        return -delta;
+                    }
                 }
             }
         }
-*/
+
         return null;
     }
 
@@ -307,9 +315,10 @@ public readonly record struct Scanner(string Name, List<Vector3> Beacons)
 
     public void AddUniqueBeacons(in List<Vector3> beacons, in Vector3 offset)
     {
-        foreach (var beacon in beacons)
+        for (var i = 0; i < beacons.Count; i++)
         {
-            var modifiedPosition = beacon - offset;
+            var beacon = beacons[i];
+            var modifiedPosition = beacon + offset;
             if (!Beacons.Contains(modifiedPosition))
             {
                 Beacons.Add(modifiedPosition);
