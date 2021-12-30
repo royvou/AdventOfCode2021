@@ -1,4 +1,5 @@
-﻿using System.Text.RegularExpressions;
+﻿using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 
 namespace AdventOfCode;
 
@@ -21,11 +22,86 @@ public class Day_19 : BaseDay
         {
             var pos = x.Split(",");
             return new Vector3(pos[0].AsInt(), pos[1].AsInt(), pos[2].AsInt());
-        }).ToHashSet();
+        }).ToList();
+
+        //var fingerprint = Scanner.GenerateFingerprint(vectors);
 
         return new Scanner(name, vectors);
     }
 
+
+    public override ValueTask<string> Solve_1()
+    {
+        var scanner = ResolveMap();
+        return new ValueTask<string>(scanner.Beacons.Count.ToString());
+    }
+
+    private Scanner ResolveMap()
+    {
+        var scannersCount = _scanners.Count;
+        var scannersWithOrientation = _scanners.Select(scanner => ScannerWithOrientations.FromScanner(scanner)).ToArray();
+        var orientation = new Scanner[scannersCount];
+        var position = new Vector3?[scannersCount];
+
+        orientation[0] = scannersWithOrientation[0].Variations[0];
+        position[0] = new Vector3(0, 0, 0);
+
+        var frontier = new Queue<int>();
+        frontier.Enqueue(0);
+
+        while (frontier.TryDequeue(out var front))
+        {
+            for (var i = 0; i < scannersCount; i++)
+            {
+                if (position[i].HasValue)
+                {
+                    continue;
+                }
+
+                var current = scannersWithOrientation[front];
+                var toCheck = scannersWithOrientation[i];
+                if (!current.FingerprintMatch(toCheck))
+                {
+                    continue;
+                }
+
+                var match = orientation[front].Match(toCheck);
+                if (!match.HasValue)
+                {
+                    continue;
+                }
+
+                orientation[i] = match.Value.Item1; // correct orientation!
+                position[i] = position[front].Value + match.Value.Item2;
+                frontier.Enqueue(i);
+            }
+        }
+
+        var result = new Scanner(orientation[0].Name, new List<Vector3>(orientation[0].Beacons));
+        for (var i = 1; i < scannersWithOrientation.Length; i++)
+        {
+            result.AddBeacons(orientation[i].Beacons, position[i].Value);
+        }
+
+        Console.Write(result.ToString());
+        return result;
+    }
+
+    public override ValueTask<string> Solve_2() => new("");
+}
+
+public readonly record struct Vector3(int X, int Y, int Z)
+{
+    public int Manhatteen(Vector3 other) => Math.Abs(other.X - X) + Math.Abs(other.Y - Y) + Math.Abs(other.Z - Z);
+
+    public static Vector3 operator +(Vector3 a, Vector3 b) => new(a.X + b.X, a.Y + b.Y, a.Z + b.Z);
+
+    public static Vector3 operator -(Vector3 a, Vector3 b) => new(a.X - b.X, a.Y - b.Y, a.Z - b.Z);
+}
+
+public readonly record struct ScannerWithOrientations(Scanner[] Variations, int[][] Fingerprint)
+{
+    [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
     private static IEnumerable<Func<Vector3, Vector3>> GetTransforms()
     {
         yield return v => new Vector3(v.X, v.Y, v.Z);
@@ -59,60 +135,125 @@ public class Day_19 : BaseDay
         yield return v => new Vector3(v.Y, -v.Z, -v.X);
     }
 
-    public override ValueTask<string> Solve_1()
+    public static ScannerWithOrientations FromScanner(Scanner sc)
     {
-        var (finalMap, _) = GetFinalMap();
-        return new ValueTask<string>(finalMap.Scans.Count.ToString());
+        var result = new List<Scanner>();
+        foreach (var transform in GetTransforms())
+        {
+            // FP is same with Transform :)
+            var transformed = sc.Beacons.Select(beacon => transform(beacon)).ToList();
+            // var transformedFp = Scanner.GenerateFingerprint(transformed);
+            var @new = new Scanner(sc.Name, transformed);
+            result.Add(@new);
+        }
+
+        var fingerprint = GenerateFingerprint(result[0].Beacons);
+
+        return new ScannerWithOrientations(result.ToArray(), fingerprint);
     }
 
-    private (Scanner finalScanner, List<Vector3> partScanner) GetFinalMap()
+    public static int[][] GenerateFingerprint(IList<Vector3> beacons)
     {
-        var scannersToDo = new Queue<Scanner>(_scanners);
-        var finalScanner = new Scanner("Final", new HashSet<Vector3>());
-        var scannersDone = new List<Vector3>();
-
-        finalScanner.Scans.UnionWith(scannersToDo.Dequeue().Scans);
-        while (scannersToDo.TryDequeue(out var currentScanner))
+        var beaconsCount = beacons.Count;
+        var fingerprint = new int[beaconsCount][];
+        for (var i = 0; i < beaconsCount; i++)
         {
-            var result = TryAlignScannerToMap(finalScanner, currentScanner);
-            if (result.HasValue)
+            fingerprint[i] = new int[beaconsCount];
+            for (var j = 0; j < beaconsCount; j++)
             {
-                var (aligned, transform) = result.Value;
-                finalScanner.Scans.UnionWith(aligned.Scans);
-                scannersDone.Add(transform);
+                fingerprint[i][j] = beacons[i].Manhatteen(beacons[j]);
             }
-            else
+
+            //Sort Array[i]
+            Array.Sort(fingerprint[i]);
+        }
+
+        return fingerprint;
+    }
+
+    public bool FingerprintMatch(ScannerWithOrientations other)
+    {
+        var beaconsCount = Variations[0].Beacons.Count;
+        var otherBeaconsCount = other.Variations[0].Beacons.Count;
+
+        for (var i = 0; i < beaconsCount; i++)
+        {
+            for (var j = 0; j < otherBeaconsCount; j++)
             {
-                scannersToDo.Enqueue(currentScanner);
+                var p1 = Fingerprint[i];
+                var p2 = other.Fingerprint[j];
+                // check if fingerprint matches
+                var x = 0;
+                var y = 0;
+                var count = 0;
+                while (x < p1.Length && y < p2.Length)
+                {
+                    if (p1[x] == p2[y])
+                    {
+                        x++;
+                        y++;
+                        count++;
+                        if (count >= 12)
+                        {
+                            return true;
+                        }
+                    }
+                    else if (p1[x] > p2[y])
+                    {
+                        y++;
+                    }
+                    else if (p1[x] < p2[y])
+                    {
+                        x++;
+                    }
+                }
             }
         }
 
-        return (finalScanner, scannersDone);
+        return false;
     }
+}
 
-    private (Scanner, Vector3)? TryAlignScannerToMap(Scanner finalScanner, Scanner currentScanner)
+public readonly record struct Scanner(string Name, List<Vector3> Beacons)
+{
+    private Vector3? Test(Scanner other)
     {
-        foreach (var transform in GetTransforms())
+        var beaconsCount = Beacons.Count;
+        var otherBeaconsCount = other.Beacons.Count;
+
+        for (var i = 11; i < beaconsCount; i++)
         {
-            var transformedScans = currentScanner with
+            for (var j = 0; j < otherBeaconsCount; j++)
             {
-                Scans = currentScanner.Scans.Select(x => transform(x)).ToHashSet(),
-            };
-
-            foreach (var scan in finalScanner.Scans)
-            {
-                foreach (var transformedScan in transformedScans.Scans)
+                var mine = Beacons[i];
+                var their = other.Beacons[j];
+                var relx = their.X - mine.X;
+                var rely = their.Y - mine.Y;
+                var relz = their.Z - mine.Z;
+                var count = 0;
+                for (var k = 0; k < beaconsCount; k++)
                 {
-                    var delta = scan.Delta(transformedScan);
-                    //Try translate all based on this scan
-                    var movedTransformedScan = transformedScans.Translate(delta);
-
-                    var tmp = new HashSet<Vector3>();
-                    tmp.UnionWith(movedTransformedScan.Scans);
-                    tmp.IntersectWith(finalScanner.Scans);
-                    if (tmp.Count >= 12)
+                    if (count + beaconsCount - k < 12)
                     {
-                        return (movedTransformedScan, delta);
+                        break; // not possible
+                    }
+
+                    for (var l = 0; l < otherBeaconsCount; l++)
+                    {
+                        var m = Beacons[k];
+                        var n = other.Beacons[l];
+                        if (relx + m.X != n.X || rely + m.Y != n.Y || relz + m.Z != n.Z)
+                        {
+                            continue;
+                        }
+
+                        count++;
+                        if (count >= 12)
+                        {
+                            return new Vector3(relx, rely, relz);
+                        }
+
+                        break;
                     }
                 }
             }
@@ -121,47 +262,31 @@ public class Day_19 : BaseDay
         return null;
     }
 
-
-    public override ValueTask<string> Solve_2()
+    public (Scanner, Vector3)? Match(ScannerWithOrientations other)
     {
-        var (_, scanners) = GetFinalMap();
+        foreach (var variation in other.Variations)
+        {
+            var match = Test(variation);
+            if (match.HasValue)
+            {
+                return (variation, match.Value);
+            }
+        }
 
-        var maxManhatten = scanners
-            .SelectMany((value, i) => scanners.Skip(1 + i), (one, two) => (one, two))
-            .Select(x => x.one.Manhatten(x.two))
-            .Max();
-
-        return new ValueTask<string>(maxManhatten.ToString());
+        return null;
     }
-}
 
-internal record struct Vector3(int X, int Y, int Z)
-{
-    public Vector3 Translate(Vector3 translate) => this with
+    public void AddBeacons(List<Vector3> beacons, Vector3 offset)
     {
-        X = X + translate.X,
-        Y = Y + translate.Y,
-        Z = Z + translate.Z,
-    };
+        foreach (var beacon in beacons)
+        {
+            // new Vector3(beacon.X + offset.X, beacon.Y + offset.Y, beacon.Z + offset.Z);
+            var modifiedPosition = beacon - offset;
 
-    public Vector3 Delta(Vector3 translate) => this with
-    {
-        X = X - translate.X,
-        Y = Y - translate.Y,
-        Z = Z - translate.Z,
-    };
-
-    public int Manhatten(Vector3 target)
-    {
-        var (x, y, z) = Delta(target);
-        return Math.Abs(x) + Math.Abs(y) + Math.Abs(z);
+            if (!Beacons.Contains(modifiedPosition))
+            {
+                Beacons.Add(modifiedPosition);
+            }
+        }
     }
-}
-
-internal record Scanner(string Name, HashSet<Vector3> Scans)
-{
-    public Scanner Translate(Vector3 translate) => this with
-    {
-        Scans = Scans.Select(x => x.Translate(translate)).ToHashSet(),
-    };
 }
