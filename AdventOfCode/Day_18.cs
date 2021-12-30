@@ -85,10 +85,10 @@ public class Day_18 : BaseDay
         return new ValueTask<string>(CalculateMagnitude(result).ToString());
     }
 
-    private long CalculateMagnitude(BinaryTree<long> result)
+    private static long CalculateMagnitude(BinaryTree<long> result)
         => CalculateMagnitude(result.Root);
 
-    private long CalculateMagnitude(BinaryTreeNode<long> resultRoot)
+    private static long CalculateMagnitude(BinaryTreeNode<long> resultRoot)
     {
         if (resultRoot.IsValueNode)
         {
@@ -110,7 +110,11 @@ public class Day_18 : BaseDay
         };
         // nodes.AddRange(left.Nodes.Skip(1));
         tree.ResetDepth();
-        tree.RebuildNodes();
+        tree.Nodes = new List<BinaryTreeNode<long>>(left.Nodes.Count + right.Nodes.Count + 1);
+        tree.Nodes.Add(tree.Root);
+        tree.Nodes.AddRange(left.Nodes);
+        tree.Nodes.AddRange(right.Nodes);
+        //tree.RebuildNodes();
         ReduceNumber(tree);
         return tree;
     }
@@ -162,52 +166,81 @@ public class Day_18 : BaseDay
 
     private static bool ApplyExplode(BinaryTree<long> input)
     {
-        var nodeOfDepth4 = input.Nodes.FirstOrDefault(x => x.Depth == 4 && !x.IsValueNode);
+        var nodesOfDepth4 = input.Nodes.Where(x => x.Depth == 4 && !x.IsValueNode).ToList();
 
-        if (nodeOfDepth4 != default)
+        var success = false;
+        foreach (var nodeOfDepth4 in nodesOfDepth4)
         {
             //input.RebuildNodes();
             var indexOfNode4 = input.Nodes.IndexOf(nodeOfDepth4);
 
-            var leftNodeOf = input.Nodes.GetRange(0, indexOfNode4).LastOrDefault(x => x.IsValueNode);
-            //.Take(indexOfNode4).LastOrDefault(x => x.IsValueNode); //TakeWhile(x => x != nodeOfDepth4).LastOrDefault(x => x.IsValueNode);//GetRange(0, indexOfNode4).LastOrDefault(x => x.IsValueNode);
-            var rightNodeOf = input.Nodes.GetRange(indexOfNode4 + 3, input.Nodes.Count - indexOfNode4 - 3).FirstOrDefault(x => x.IsValueNode);
-            //.Skip(indexOfNode4).Where(x => x != nodeOfDepth4.Left && x != nodeOfDepth4.Right).FirstOrDefault(x => x.IsValueNode); //GetRange(indexOfNode4 + 2, input.Nodes.Count - indexOfNode4 - 3).FirstOrDefault(x => x.IsValueNode);
+            var leftNodeOf = GetFirstValueNodeLeftOf(input, indexOfNode4);
+            var rightNodeOf = GetFirstValueNodeRightOf(input, indexOfNode4);
+            //var rightNodeOf = input.Nodes.GetRange(indexOfNode4 + 3, input.Nodes.Count - indexOfNode4 - 3).FirstOrDefault(x => x.IsValueNode);
 
+            var nodeOfDepth4Left = nodeOfDepth4.Left;
             if (leftNodeOf != default)
             {
-                leftNodeOf.Value += nodeOfDepth4.Left.Value;
+                leftNodeOf.Value += nodeOfDepth4Left.Value;
             }
 
+            var nodeOfDepth4Right = nodeOfDepth4.Right;
             if (rightNodeOf != default)
             {
-                rightNodeOf.Value += nodeOfDepth4.Right.Value;
+                rightNodeOf.Value += nodeOfDepth4Right.Value;
             }
 
-            if (nodeOfDepth4.Left != default)
+            if (nodeOfDepth4Left != default)
             {
-                input.Nodes.Remove(nodeOfDepth4.Left);
+                input.Nodes.Remove(nodeOfDepth4Left);
                 nodeOfDepth4.Left = default;
             }
 
-            if (nodeOfDepth4.Right != default)
+            if (nodeOfDepth4Right != default)
             {
-                input.Nodes.Remove(nodeOfDepth4.Right);
+                input.Nodes.Remove(nodeOfDepth4Right);
                 nodeOfDepth4.Right = default;
             }
 
             nodeOfDepth4.Value = 0;
 
-            return true;
+            success = true;
         }
 
-        return false;
+        return success;
     }
 
-    public override ValueTask<string> Solve_2()
+    private static BinaryTreeNode<long>? GetFirstValueNodeRightOf(BinaryTree<long> input, int indexOfNode4)
     {
-        return new ValueTask<string>(_mathHomeworkPart2.Select(x => CalculateMagnitude(ConcatTree(x.A, x.B))).Max().ToString());
+        var startIndex = indexOfNode4 + 3;
+        var endIndex = input.Nodes.Count;
+        for (var i = startIndex; i < endIndex; i++)
+        {
+            var node = input.Nodes[i];
+            if (node.IsValueNode)
+            {
+                return node;
+            }
+        }
+
+        return null;
     }
+
+    private static BinaryTreeNode<long>? GetFirstValueNodeLeftOf(BinaryTree<long> input, int indexOfNode4)
+    {
+        for (var i = indexOfNode4; i >= 0; i--)
+        {
+            var node = input.Nodes[i];
+            if (node.IsValueNode)
+            {
+                return node;
+            }
+        }
+
+        return null;
+    }
+
+    public override ValueTask<string> Solve_2() => new(_mathHomeworkPart2.Select(static x => CalculateMagnitude(ConcatTree(x.A, x.B))).Max().ToString());
 
     public class BinaryTree<T>
     {
