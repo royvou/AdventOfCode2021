@@ -24,8 +24,6 @@ public class Day_19 : BaseDay
             return new Vector3(pos[0].AsInt(), pos[1].AsInt(), pos[2].AsInt());
         }).ToList();
 
-        //var fingerprint = Scanner.GenerateFingerprint(vectors);
-
         return new Scanner(name, vectors);
     }
 
@@ -39,7 +37,7 @@ public class Day_19 : BaseDay
     private Scanner ResolveMap()
     {
         var scannersCount = _scanners.Count;
-        var scannersWithOrientation = _scanners.Select(scanner => ScannerWithOrientations.FromScanner(scanner)).ToArray();
+        var scannersWithOrientation = _scanners.Select(static scanner => ScannerWithOrientations.FromScanner(scanner)).ToArray();
         var orientation = new Scanner[scannersCount];
         var position = new Vector3?[scannersCount];
 
@@ -78,12 +76,13 @@ public class Day_19 : BaseDay
         }
 
         var result = new Scanner(orientation[0].Name, new List<Vector3>(orientation[0].Beacons));
+
         for (var i = 1; i < scannersWithOrientation.Length; i++)
         {
-            result.AddBeacons(orientation[i].Beacons, position[i].Value);
+            result.AddUniqueBeacons(orientation[i].Beacons, position[i].Value);
         }
 
-        Console.Write(result.ToString());
+
         return result;
     }
 
@@ -140,9 +139,7 @@ public readonly record struct ScannerWithOrientations(Scanner[] Variations, int[
         var result = new List<Scanner>();
         foreach (var transform in GetTransforms())
         {
-            // FP is same with Transform :)
             var transformed = sc.Beacons.Select(beacon => transform(beacon)).ToList();
-            // var transformedFp = Scanner.GenerateFingerprint(transformed);
             var @new = new Scanner(sc.Name, transformed);
             result.Add(@new);
         }
@@ -216,12 +213,42 @@ public readonly record struct ScannerWithOrientations(Scanner[] Variations, int[
 
 public readonly record struct Scanner(string Name, List<Vector3> Beacons)
 {
-    private Vector3? Test(Scanner other)
+    private Vector3? Test(in Scanner other)
     {
-        var beaconsCount = Beacons.Count;
-        var otherBeaconsCount = other.Beacons.Count;
+        var beacons = Beacons;
+        var otherBeacons = other.Beacons;
 
-        for (var i = 11; i < beaconsCount; i++)
+        var beaconsCount = beacons.Count;
+        var otherBeaconsCount = otherBeacons.Count;
+
+        // Reuse hashset for each  Test
+        HashSet<Vector3> beaconComparer = new(beaconsCount);
+        foreach (var mine in beacons)
+        {
+            // var mine = beacons[i];
+            foreach (var their in otherBeacons)
+            {
+                //var their = otherBeacons[j];
+                var delta = their - mine;
+
+                beaconComparer.Clear();
+                foreach (var beacon in otherBeacons)
+                {
+                    beaconComparer.Add(beacon - delta);
+                }
+
+                beaconComparer.IntersectWith(beacons);
+
+                if (beaconComparer.Count >= 12)
+                {
+                    return delta;
+                }
+            }
+        }
+
+/*
+        Based on this Manual version :)
+        for (var i = 22; i < beaconsCount; i++)
         {
             for (var j = 0; j < otherBeaconsCount; j++)
             {
@@ -258,14 +285,16 @@ public readonly record struct Scanner(string Name, List<Vector3> Beacons)
                 }
             }
         }
-
+*/
         return null;
     }
 
-    public (Scanner, Vector3)? Match(ScannerWithOrientations other)
+    public (Scanner MatchedScannerVariant, Vector3 Offset)? Match(in ScannerWithOrientations other)
     {
-        foreach (var variation in other.Variations)
+        var otherVariationsLength = other.Variations.Length;
+        for (var i = 0; i < otherVariationsLength; i++)
         {
+            var variation = other.Variations[i];
             var match = Test(variation);
             if (match.HasValue)
             {
@@ -276,13 +305,11 @@ public readonly record struct Scanner(string Name, List<Vector3> Beacons)
         return null;
     }
 
-    public void AddBeacons(List<Vector3> beacons, Vector3 offset)
+    public void AddUniqueBeacons(in List<Vector3> beacons, in Vector3 offset)
     {
         foreach (var beacon in beacons)
         {
-            // new Vector3(beacon.X + offset.X, beacon.Y + offset.Y, beacon.Z + offset.Z);
             var modifiedPosition = beacon - offset;
-
             if (!Beacons.Contains(modifiedPosition))
             {
                 Beacons.Add(modifiedPosition);
